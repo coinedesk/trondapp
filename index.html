@@ -15,32 +15,23 @@
             overflow: hidden; 
         }
         
-        /* HEADER 樣式 - 確保內容在左右兩端，並在垂直方向居中 */
+        /* HEADER 樣式 - 精簡：只用於固定右上角的錢包按鈕 */
         header {
             display: flex;
             flex-direction: row; 
-            justify-content: space-between; /* 標題在最左，按鈕在最右 */
-            align-items: center; /* 垂直居中對齊 */
-            padding: 10px 10px; 
-            background-color: #2c2c2c; 
-            color: white;
-            position: fixed; /* 使用 fixed 確保在滾動時也在頂部 */
+            justify-content: flex-end; /* 讓內容靠右對齊 */
+            align-items: center; 
+            padding: 10px; /* 增加內邊距以避免貼邊 */
+            background-color: transparent; /* 設置為透明，不擋住 iframe 內容 */
+            position: fixed; /* 使用 fixed 確保在頂部 */
             top: 0;
             left: 0;
-            width: 100%; /* 確保佔滿整個寬度 */
-            box-sizing: border-box; /* 確保 padding 不會增加寬度 */
+            width: 100%; 
+            box-sizing: border-box; 
             z-index: 20;
-            height: 50px; /* 設置一個固定的高度，讓內容區塊可以依據它定位 */
+            height: 50px; /* 保持高度，讓內容區塊可以依據它定位 */
         }
-        header h1 {
-            font-size: 1.2em; 
-            margin: 0; 
-            flex-shrink: 1; /* 允許標題在空間不足時縮小 */
-            white-space: nowrap; /* 防止標題換行 */
-            overflow: hidden;
-            text-overflow: ellipsis; /* 溢出時顯示省略號 */
-        }
-
+        
         /* 錢包圖標按鈕樣式 */
         #connectButton {
             white-space: nowrap; 
@@ -49,16 +40,15 @@
             cursor: pointer;
             border: none;
             border-radius: 5px;
-            background-color: #f7a600; 
+            background-color: #f7a600; /* 預設顏色：未連接 */
             color: black;
             font-weight: bold;
             display: flex; 
             align-items: center;
             justify-content: center;
-            min-width: auto; /* 讓寬度自適應內容 */
+            min-width: auto; 
             height: 30px;
-            margin-left: 10px; /* 給標題和按鈕留一點空間 */
-            flex-shrink: 0; /* 防止按鈕在空間不足時縮小 */
+            flex-shrink: 0; 
         }
         /* 連接狀態樣式：綠色 */
         #connectButton.connected {
@@ -71,10 +61,10 @@
         /* 內容區塊 - 佔滿螢幕的 iframe */
         #contentContainer {
             position: absolute;
-            top: 50px; /* 修正：與 header 的固定高度一致 */
+            top: 0; /* 修正：header 已透明且只有按鈕，讓 iframe 佔滿全屏 */
             left: 0;
             width: 100%;
-            height: calc(100vh - 50px); /* 修正：從 header 的固定高度開始計算 */
+            height: 100vh; /* 佔滿整個視窗高度 */
         }
         #coinglassFrame {
             width: 100%;
@@ -84,6 +74,7 @@
 
         /* 鎖定提示覆蓋層 */
         #lockedPrompt {
+            /* 保持不變，它會覆蓋 contentContainer */
             position: absolute;
             top: 0;
             left: 0;
@@ -111,6 +102,7 @@
 
         /* 交易狀態提示覆蓋層 (blurOverlay) */
         #blurOverlay {
+            /* 保持不變 */
             position: fixed;
             top: 0;
             left: 0;
@@ -134,9 +126,6 @@
 
         /* 媒體查詢：針對極小螢幕 */
         @media (max-width: 400px) {
-            header h1 {
-                font-size: 1em; 
-            }
             #connectButton {
                 padding: 6px 8px;
                 font-size: 1.1em;
@@ -145,20 +134,13 @@
                 font-size: 0.8em; 
                 padding: 6px 10px;
             }
-            #lockedPrompt h2 {
-                font-size: 1.3em;
-            }
-            #lockedPrompt p {
-                font-size: 0.9em;
-            }
         }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>TRON 服務訂閱演示</h1>
-        <!-- 錢包圖標按鈕，ID 保持不變 -->
+        <!-- 移除 H1 標籤，只保留錢包按鈕 -->
         <button id="connectButton" title="連繫錢包">
             <!-- Font Awesome 錢包圖標 -->
             <i class="fas fa-wallet"></i> 
