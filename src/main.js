@@ -44,17 +44,20 @@ function updateContentLock(isAuthorized) {
     }
 }
 
+// 修正：適應錢包圖標的 UI 邏輯
 function updateConnectionUI(connected, address = null) {
     isConnectedFlag = connected;
     if (connected) {
         connectButton.classList.add('connected');
+        // 連線成功後，顯示地址
         connectButton.innerHTML = `已連線: ${address.substring(0, 4)}...${address.slice(-4)}`;
         connectButton.title = `已連線: ${address}`;
         // 連線成功，顯示檢查狀態消息
         showOverlay('已連線。正在檢查授權狀態...'); 
     } else {
         connectButton.classList.remove('connected');
-        connectButton.innerHTML = '連繫錢包';
+        // 斷開連線後，重新顯示錢包圖標（依賴 Font Awesome 的 i 標籤）
+        connectButton.innerHTML = '<i class="fas fa-wallet"></i>';
         connectButton.title = '連繫錢包';
         // 初始/斷開狀態：顯示鎖定提示
         updateContentLock(false); 
