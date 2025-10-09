@@ -2,7 +2,7 @@
 // 🚨 最終穩定版代碼 (包含強制 CDN 異步載入修正)
 
 // --- 配置常量 ---
-const WC_PROJECT_ID = '21ae0b7f500d5d9e2ed3c74c463df3f0'; // 🚨 請確認您的 Project ID 🚨
+const WC_PROJECT_ID = '922c686ab82f7b68a1a3aea94a9b3e37'; // 🚨 請確認您的 Project ID 🚨
 const TRON_CHAIN_ID = 'tron:50'; // TRON 主網鏈 ID
 const TRON_RPC_URL = 'https://api.trongrid.io';
 
