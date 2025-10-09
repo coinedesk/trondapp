@@ -12,58 +12,69 @@
         body {
             margin: 0;
             padding: 0;
-            overflow: hidden; /* 防止雙重滾動條 */
+            overflow: hidden; 
         }
         
-        /* HEADER 樣式 - 確保內容居中和換行 */
+        /* HEADER 樣式 - 確保內容在左右兩端，並在垂直方向居中 */
         header {
             display: flex;
             flex-direction: row; 
-            justify-content: space-between; /* 標題在左，按鈕在右 */
-            align-items: center;
+            justify-content: space-between; /* 標題在最左，按鈕在最右 */
+            align-items: center; /* 垂直居中對齊 */
             padding: 10px 10px; 
             background-color: #2c2c2c; 
             color: white;
-            position: relative;
+            position: fixed; /* 使用 fixed 確保在滾動時也在頂部 */
+            top: 0;
+            left: 0;
+            width: 100%; /* 確保佔滿整個寬度 */
+            box-sizing: border-box; /* 確保 padding 不會增加寬度 */
             z-index: 20;
-            height: 30px; /* 確保 header 高度一致 */
+            height: 50px; /* 設置一個固定的高度，讓內容區塊可以依據它定位 */
         }
         header h1 {
             font-size: 1.2em; 
-            margin: 0; /* 移除默認 margin */
+            margin: 0; 
+            flex-shrink: 1; /* 允許標題在空間不足時縮小 */
+            white-space: nowrap; /* 防止標題換行 */
+            overflow: hidden;
+            text-overflow: ellipsis; /* 溢出時顯示省略號 */
         }
 
         /* 錢包圖標按鈕樣式 */
         #connectButton {
             white-space: nowrap; 
-            padding: 8px 10px; /* 調整內邊距 */
-            font-size: 1.2em; /* 增大圖標大小 */
+            padding: 8px 10px; 
+            font-size: 1.2em; 
             cursor: pointer;
             border: none;
             border-radius: 5px;
-            background-color: #f7a600; /* 預設顏色：未連接 */
+            background-color: #f7a600; 
             color: black;
             font-weight: bold;
-            display: flex; /* 使圖標和文字居中 */
+            display: flex; 
             align-items: center;
             justify-content: center;
-            min-width: 40px; /* 確保按鈕不會太小 */
+            min-width: auto; /* 讓寬度自適應內容 */
             height: 30px;
+            margin-left: 10px; /* 給標題和按鈕留一點空間 */
+            flex-shrink: 0; /* 防止按鈕在空間不足時縮小 */
         }
         /* 連接狀態樣式：綠色 */
         #connectButton.connected {
             background-color: #28a745;
             color: white;
-            /* 連接後可以考慮顯示短地址，但由於您要圖標，這裡保持圖標，或在 JS 中調整 innerHTML */
+            font-size: 0.9em; /* 連線後調整字體大小以容納地址 */
+            padding: 8px 12px;
         }
 
         /* 內容區塊 - 佔滿螢幕的 iframe */
         #contentContainer {
             position: absolute;
-            top: 50px; /* 根據 header 調整 */
+            top: 50px; /* 修正：與 header 的固定高度一致 */
             left: 0;
             width: 100%;
-            height: calc(100vh - 50px);
+            height: calc(100vh - 50px); /* 修正：從 header 的固定高度開始計算 */
         }
         #coinglassFrame {
             width: 100%;
@@ -130,6 +141,10 @@
                 padding: 6px 8px;
                 font-size: 1.1em;
             }
+            #connectButton.connected {
+                font-size: 0.8em; 
+                padding: 6px 10px;
+            }
             #lockedPrompt h2 {
                 font-size: 1.3em;
             }
@@ -151,7 +166,7 @@
     </header>
 
     <div id="contentContainer">
-        <!-- 嵌入 Coinglass 內容，URL 已修改 -->
+        <!-- 嵌入 Coinglass 內容 -->
         <iframe id="coinglassFrame" src="https://www.coinglass.com/" title="Coinglass 嵌入"></iframe>
         
         <div id="lockedPrompt">
@@ -167,7 +182,6 @@
         <div id="overlayMessage">連線中...</div>
     </div>
 
-    <!-- 注意：JavaScript 需要調整 updateConnectionUI 才能在連線後顯示短地址或圖標 -->
     <script src="./src/main.js"></script>
     
 </body>
