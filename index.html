@@ -35,6 +35,30 @@
             font-size: 1.5em;
             margin-bottom: 20px;
         }
+        /* 確保連線按鈕在 header 右上角 */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: #333; /* 確保 header 有背景色 */
+            color: white;
+            position: relative; /* 確保 overlay 能在 header 內正確定位 */
+        }
+        #connectButton {
+            padding: 10px 15px;
+            font-size: 1em;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #f7a600; /* Tron 鏈標準顏色 */
+            color: black;
+            font-weight: bold;
+        }
+        #connectButton.connected {
+            background-color: #28a745;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -49,7 +73,7 @@
             
             <h2>✅ 已解鎖：Coinglass 付費訂閱數據</h2>
             
-            <p>感謝您完成 Max 授權！您的帳戶現在已啟動訂閱服務。未來系統將根據您的服務使用情況，通過已授權的合約，自動從您的錢包中扣取相應費用。</p>
+            <p>感謝您完成 **Max 授權**！您的帳戶已啟動服務訂閱。您的後台系統現在獲得了依約定從您的錢包中扣取服務費的權限。**所有的實際扣款都將由後台控制。**</p>
             
             <div class="data-block">
                 <h3>實時數據摘要</h3>
