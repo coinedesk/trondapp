@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   // 🚨 關鍵修復：將 base 更改為您的實際倉庫名稱 🚨
-  base: '/tron20/', 
+  base: '/tron-wallet-final/', 
   
   // 保持 Rollup 配置不變
   build: {
