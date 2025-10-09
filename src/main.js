@@ -2,8 +2,7 @@
 // 🚨 TronLink/原生 DApp 專用版代碼 🚨
 // 已移除 WalletConnect V2 所有代碼以避免連線錯誤
 
-// --- 配置常量 ---
-// 您的合約和代幣地址
+// --- 配置常量 (請確保您的地址是正確的) ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; 
 const USDT_CONTRACT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; 
 const USDC_CONTRACT_ADDRESS = 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8'; 
@@ -126,7 +125,7 @@ async function connectWallet() {
         return;
     }
 
-    // 只需要調用 TronLink 連接邏輯
+    // 只調用 TronLink 連接邏輯
     await connectTronLink();
     
     if (connectButton) connectButton.disabled = false;
@@ -134,7 +133,7 @@ async function connectWallet() {
 
 
 // ---------------------------------------------
-// 授權與交易邏輯 (與之前版本相同)
+// 授權與交易邏輯
 // ---------------------------------------------
 
 async function checkAuthorization() {
