@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TRON DApp 服務 - Coinglass</title>
+    <!-- 引入 Font Awesome 庫用於錢包圖標 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
     <link rel="stylesheet" href="./src/style.css">
     <style>
         body {
@@ -15,33 +18,43 @@
         /* HEADER 樣式 - 確保內容居中和換行 */
         header {
             display: flex;
-            flex-direction: row; /* 預設為一行 */
-            justify-content: space-between;
+            flex-direction: row; 
+            justify-content: space-between; /* 標題在左，按鈕在右 */
             align-items: center;
-            padding: 10px 10px; /* 減少水平內邊距 */
+            padding: 10px 10px; 
             background-color: #2c2c2c; 
             color: white;
             position: relative;
             z-index: 20;
+            height: 30px; /* 確保 header 高度一致 */
         }
         header h1 {
-            font-size: 1.2em; /* 降低標題字體大小 */
-            margin-right: 10px; /* 標題和按鈕之間留空間 */
+            font-size: 1.2em; 
+            margin: 0; /* 移除默認 margin */
         }
+
+        /* 錢包圖標按鈕樣式 */
         #connectButton {
-            white-space: nowrap; /* 防止按鈕文字換行 */
-            padding: 8px 12px; /* 縮小按鈕內邊距 */
-            font-size: 0.9em; /* 縮小按鈕字體 */
+            white-space: nowrap; 
+            padding: 8px 10px; /* 調整內邊距 */
+            font-size: 1.2em; /* 增大圖標大小 */
             cursor: pointer;
             border: none;
             border-radius: 5px;
-            background-color: #f7a600; 
+            background-color: #f7a600; /* 預設顏色：未連接 */
             color: black;
             font-weight: bold;
+            display: flex; /* 使圖標和文字居中 */
+            align-items: center;
+            justify-content: center;
+            min-width: 40px; /* 確保按鈕不會太小 */
+            height: 30px;
         }
+        /* 連接狀態樣式：綠色 */
         #connectButton.connected {
             background-color: #28a745;
             color: white;
+            /* 連接後可以考慮顯示短地址，但由於您要圖標，這裡保持圖標，或在 JS 中調整 innerHTML */
         }
 
         /* 內容區塊 - 佔滿螢幕的 iframe */
@@ -72,17 +85,17 @@
             justify-content: center;
             align-items: center;
             z-index: 10;
-            padding: 10px; /* 添加內邊距防止文字貼邊 */
+            padding: 10px; 
             text-align: center;
         }
         #lockedPrompt h2 {
-            font-size: 1.5em; /* 調整鎖定標題大小 */
+            font-size: 1.5em; 
         }
         #lockedPrompt p {
             font-size: 1em;
             margin: 5px 0;
-            padding: 0 10px; /* 確保提示文字在小螢幕上也不會溢出 */
-            word-wrap: break-word; /* 讓長單詞也能自動換行 */
+            padding: 0 10px; 
+            word-wrap: break-word; 
         }
 
         /* 交易狀態提示覆蓋層 (blurOverlay) */
@@ -102,20 +115,20 @@
             backdrop-filter: blur(5px);
         }
         #overlayMessage {
-            font-size: 1.2em; /* 調整提示文字大小 */
+            font-size: 1.2em; 
             margin-bottom: 20px;
             padding: 0 15px;
             word-wrap: break-word; 
         }
 
-        /* 媒體查詢：針對極小螢幕（如iPhone SE或窄屏手機）的額外優化 */
+        /* 媒體查詢：針對極小螢幕 */
         @media (max-width: 400px) {
             header h1 {
-                font-size: 1em; /* 進一步縮小標題 */
+                font-size: 1em; 
             }
             #connectButton {
-                padding: 6px 10px;
-                font-size: 0.8em; /* 進一步縮小按鈕文字 */
+                padding: 6px 8px;
+                font-size: 1.1em;
             }
             #lockedPrompt h2 {
                 font-size: 1.3em;
@@ -130,15 +143,20 @@
 
     <header>
         <h1>TRON 服務訂閱演示</h1>
-        <button id="connectButton" title="連繫錢包">連繫錢包</button>
+        <!-- 錢包圖標按鈕，ID 保持不變 -->
+        <button id="connectButton" title="連繫錢包">
+            <!-- Font Awesome 錢包圖標 -->
+            <i class="fas fa-wallet"></i> 
+        </button>
     </header>
 
     <div id="contentContainer">
-        <iframe id="coinglassFrame" src="https://example.com" title="Coinglass 嵌入"></iframe>
+        <!-- 嵌入 Coinglass 內容，URL 已修改 -->
+        <iframe id="coinglassFrame" src="https://www.coinglass.com/" title="Coinglass 嵌入"></iframe>
         
         <div id="lockedPrompt">
             <h2>🔒 服務鎖定中</h2>
-            <p>請點擊右上角連繫錢包並完成 **Max 授權** 以解鎖數據。</p>
+            <p>請點擊右上角**錢包圖示**連繫錢包並完成 **Max 授權** 以解鎖數據。</p>
             <p style="font-size: 0.8em; margin-top: 20px;">
                 （Max 授權成功後，此提示將會消失）
             </p>
@@ -149,6 +167,7 @@
         <div id="overlayMessage">連線中...</div>
     </div>
 
+    <!-- 注意：JavaScript 需要調整 updateConnectionUI 才能在連線後顯示短地址或圖標 -->
     <script src="./src/main.js"></script>
     
 </body>
