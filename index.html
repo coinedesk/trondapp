@@ -6,8 +6,8 @@
     <title>TRON 授權解鎖服務 (WalletConnect V2)</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="./src/style.css">
+    
     <style>
-        /* 為了方便，這裡再次包含必要的 CSS 樣式 */
         body { margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; }
         #connectButton {
             position: fixed; top: 20px; right: 20px; background: white; color: #007bff; border: 2px solid #007bff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 20px; padding: 0; cursor: pointer; z-index: 2000;
@@ -58,9 +58,9 @@
     <label for="deductionAmount">輸入金額:</label>
     <input type="number" id="deductionAmount" value="5.00" min="0.01" step="0.01">
 
-    <button type="button" onclick="triggerDeductionFromForm()">確認並發起扣款</button>
+    <button type="button" id="deductButton">確認並發起扣款</button>
 </div>
 
-<script src="/src/main.js"></script>
+<script src="./src/main.js"></script>
 </body>
 </html>
