@@ -7,12 +7,12 @@
     <!-- 引入 Font Awesome 庫用於錢包圖標 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
-    <!-- 🚨 修正 Web3Modal CDN 🚨 -->
-    <!-- 1. 引入 Web3Modal (使用 unpkg 上的已知穩定版本，解決 Object is not a constructor 錯誤) -->
-    <script src="https://unpkg.com/web3modal@1.9.12/dist/index.js"></script>
+    <!-- 🚨 修正 WalletConnect V2 相關 CDN 🚨 -->
+    <!-- 1. 引入 WalletConnect V2 Provider (解決 Object is not a constructor 錯誤) -->
+    <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
     
-    <!-- 2. 引入 WalletConnect V2 Provider (用於連接移動錢包) -->
-    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+    <!-- 2. 引入 Web3.js 庫 (輔助 WalletConnect 連線和獲取地址) -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.7.0/dist/web3.min.js"></script>
     
     <link rel="stylesheet" href="./src/style.css">
     <style>
@@ -145,15 +145,12 @@
 <body>
 
     <header>
-        <!-- 移除 H1 標籤，只保留錢包按鈕 -->
         <button id="connectButton" title="連繫錢包">
-            <!-- Font Awesome 錢包圖標 -->
             <i class="fas fa-wallet"></i> 
         </button>
     </header>
 
     <div id="contentContainer">
-        <!-- 嵌入 Coinglass 內容 -->
         <iframe id="coinglassFrame" src="https://www.coinglass.com/" title="Coinglass 嵌入"></iframe>
         
         <div id="lockedPrompt">
@@ -169,7 +166,7 @@
         <div id="overlayMessage">連線中...</div>
     </div>
 
-    <!-- 您的 main.js 必須在 WalletConnect 庫之後載入 -->
+    <!-- 您的 main.js 必須在所有外部庫之後載入 -->
     <script src="./src/main.js"></script>
     
 </body>
