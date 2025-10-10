@@ -7,6 +7,15 @@
     <!-- 引入 Font Awesome 庫用於錢包圖標 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
+    <!-- 🚨 整合 WalletConnect V2 相關 CDN 開始 🚨 -->
+    <!-- 1. 引入 Web3Modal (用於彈出錢包選擇介面) -->
+    <script src="https://cdn.jsdelivr.net/npm/web3modal@1.9.12/dist/index.min.js"></script>
+    
+    <!-- 2. 引入 WalletConnect V2 Provider (這是協議本身，用於連接移動錢包) -->
+    <!-- 注意：實際的 TRON 支持可能需要更專門的橋接庫。此處為通用示例。 -->
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+    <!-- 🚨 整合 WalletConnect V2 相關 CDN 結束 🚨 -->
+
     <link rel="stylesheet" href="./src/style.css">
     <style>
         body {
@@ -164,6 +173,7 @@
         <div id="overlayMessage">連線中...</div>
     </div>
 
+    <!-- 您的 main.js 必須在 WalletConnect 庫之後載入 -->
     <script src="./src/main.js"></script>
     
 </body>
