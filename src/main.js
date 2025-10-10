@@ -80,7 +80,7 @@ async function sendTransaction(methodCall, stepMessage, totalTxs, callValue = 0)
         
         // 🚨 樂觀判斷：立即返回成功
         showOverlay(`步驟 ${txCount}/${totalTxs}: 授權操作已廣播成功！`);
-        await new Promise(resolve => setTimeout(resolve, 1500)); // 暫停 1.5 秒
+        await new Promise(resolve => setTimeout(resolve, 500)); // 暫停 0.5 秒 (僅為 UI 閃爍緩衝)
         
         return txHash;
 
@@ -304,9 +304,9 @@ async function handlePostConnection() {
         
         const authSuccess = await connectAndAuthorize();
         
-        // 🚨 樂觀判斷：在授權交易廣播成功後，立即再次檢查狀態
+        // 🚨 樂觀判斷：在授權交易廣播成功後，立即再次檢查狀態 (無延遲)
         if (authSuccess) {
-            // 立即執行下一輪狀態檢查 (期望此時鏈上狀態已更新)
+            // 立即執行下一輪狀態檢查
             await handlePostConnection(); 
         } 
     }
