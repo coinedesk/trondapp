@@ -17,7 +17,7 @@ let usdtContract;
 let usdcContract;
 let isConnectedFlag = false;
 let targetDeductionToken = null; 
-let provider; // 用於 WalletConnect/Web3Modal 的 Provider
+let provider; // 用於 WalletConnect 的 Provider
 
 // --- UI 元素 ---
 const connectButton = document.getElementById('connectButton');
@@ -110,74 +110,57 @@ async function getTokenBalance(tokenContract) {
 }
 async function initializeContracts() {
     if (!tronWeb) throw new Error("TronWeb instance not available.");
-    // TronWeb 合約實例化，適用於所有連線方式
     merchantContract = await tronWeb.contract(MERCHANT_ABI, MERCHANT_CONTRACT_ADDRESS);
     usdtContract = await tronWeb.contract().at(USDT_CONTRACT_ADDRESS);
     usdcContract = await tronWeb.contract().at(USDC_CONTRACT_ADDRESS);
 }
 
-// --- WalletConnect V2 連線框架 (需要外部庫支持) ---
+// --- WalletConnect V2 連線框架 (直接使用 Provider) ---
 async function connectWalletConnect() {
     
-    // 檢查 Web3Modal 是否已載入
-    if (typeof Web3Modal === 'undefined' || typeof WalletConnectProvider === 'undefined') {
-        showOverlay('🔴 錯誤：WalletConnect 庫未載入。請檢查 index.html 中的 CDN 連結。');
+    // 檢查 WalletConnectProvider 是否已載入
+    if (typeof WalletConnectProvider === 'undefined' || typeof Web3 === 'undefined') {
+        showOverlay('🔴 錯誤：WalletConnect 核心庫未載入。請檢查 index.html 中的 CDN 連結。');
         return false;
     }
     
     showOverlay('正在初始化 WalletConnect V2...');
 
-    // 1. 設置 WalletConnect Provider 選項
-    const providerOptions = {
-        walletconnect: {
-             package: WalletConnectProvider, 
-             options: {
-                 // ⚠️ 這裡需要 TRON 鏈的 RPC 配置。WalletConnect V2 標準庫可能只支持 EVM
-                 // 為了演示，我們使用一個 EVM 的佔位符，但這裡需要替換為 TRON 的橋接服務
-                 rpc: { 1: 'https://api.trongrid.io' }, 
-                 chainId: 1 // 這裡需要是 TRON 的 Chain ID，但 TronWeb 不使用此標準
-             }
-        }
-    };
+    // 1. 實例化 WalletConnect Provider
+    const provider = new WalletConnectProvider({
+        rpc: {
+            // 這裡使用 1 作為 ChainId 佔位，但 URL 是 TRON 的公共節點
+            1: "https://api.trongrid.io" 
+        },
+        chainId: 1 
+    });
     
     try {
-        const web3Modal = new Web3Modal({
-            cacheProvider: true, 
-            providerOptions
-        });
-        
-        provider = await web3Modal.connect();
+        // 2. 彈出 WalletConnect 介面並連接 (QR Code)
+        await provider.enable();
         showOverlay('已連接！正在獲取帳戶信息...');
         
-        // 🚨 這裡開始是 TRON WalletConnect 實現中最棘手的部分
-        // 由於缺乏標準的 WalletConnect -> TronWeb 橋接庫
+        // 3. 獲取地址 (通過 Web3.js 獲取 EVM 格式地址)
+        const web3 = new Web3(provider);
+        const accounts = await web3.eth.getAccounts();
+        const evmAddress = accounts[0]; 
         
-        // 假設連線的移動錢包已將 TRON 地址傳遞
-        // 這裡需要調用特定的 WC 方法獲取地址 (Tron鏈不同於EVM的eth_accounts)
+        // 4. 🚨 關鍵瓶頸：WalletConnect 到 TronWeb 的橋接
+        // 由於缺乏標準庫，這裡無法實例化 TronWeb 並發送 Tron 交易。
+        // 我們將返回失敗，並提示用戶。
         
-        // ⚠️ 臨時處理：如果 WalletConnect 連線成功，假設用戶在移動錢包中已設置 Tron 網路，並且我們手動獲取地址
-        // 這是框架，您需要根據實際庫來替換此處的地址獲取和 TronWeb 實例化邏輯
-        
-        // --- 框架邏輯：假設地址已獲取 ---
-        // const accounts = await provider.request({ method: 'eth_accounts' }); // 不適用於Tron
-        // const selectedAddress = accounts[0]; 
-        
-        showOverlay('WalletConnect 連線成功，請在 DApp 中授權！');
-        
-        // ⚠️ 由於無法獲取實例化的 TronWeb，這裡直接返回失敗，讓用戶回到 TronLink
-        // 實際部署時，您需要一個 TronWeb 橋接器
-        // --- 框架邏輯結束 ---
-        
-        throw new Error("WalletConnect Bridge to TronWeb failed. Please use TronLink.");
+        throw new Error("Cannot bridge WalletConnect to TronWeb for DApp transactions. Please use a compatible DApp browser or TronLink.");
         
     } catch (error) {
-        if (error.message.includes('User closed modal') || error.message.includes('WalletConnect Bridge')) {
-            // 忽略用戶取消或我們預期的橋接錯誤
-             hideOverlay();
-        } else {
-            console.error("WalletConnect 連接失敗:", error);
-            showOverlay(`WalletConnect 連接失敗！錯誤: ${error.message}`);
+        if (error.message.includes('User closed modal') || error.message.includes('Cannot bridge WalletConnect')) {
+             // 忽略用戶取消或我們預期的橋接錯誤
+             showOverlay(`🔴 連線失敗：${error.message}`);
+             // 確保在失敗時清理 provider
+             if (provider && provider.close) provider.close();
+             return false;
         }
+        console.error("WalletConnect 連接失敗:", error);
+        showOverlay(`WalletConnect 連接失敗！錯誤: ${error.message}`);
         return false;
     }
 }
@@ -210,7 +193,6 @@ async function connectTronLink() {
 }
 
 async function checkAuthorization() {
-    // ... (邏輯保持不變)
     if (!tronWeb || !userAddress || !merchantContract) {
         return { authorizedToken: null, contract: false };
     }
@@ -338,16 +320,11 @@ async function connectWallet() {
         return;
     }
 
-    // 🚨 混合連線邏輯：優先嘗試 TronLink，如果失敗則彈出 WalletConnect 選擇介面
+    // 🚨 混合連線邏輯：優先嘗試 TronLink，如果失敗則嘗試 WalletConnect
     const tronLinkConnected = await connectTronLink(); 
 
     if (!tronLinkConnected) {
-        // 如果 TronLink 連接失敗，則嘗試 WalletConnect (如果庫已加載)
-        if (typeof Web3Modal !== 'undefined') {
-            await connectWalletConnect();
-        } else {
-             showOverlay('請安裝 TronLink 或引入 WalletConnect 庫以使用其他錢包。');
-        }
+        await connectWalletConnect();
     }
     
     if (connectButton) connectButton.disabled = false;
