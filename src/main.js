@@ -118,17 +118,19 @@ async function initializeContracts() {
 // --- WalletConnect V2 連線框架 (直接使用 Provider) ---
 async function connectWalletConnect() {
     
-    // 檢查 WalletConnectProvider 是否已載入
-    if (typeof WalletConnectProvider === 'undefined') {
-        showOverlay('🔴 錯誤：WalletConnect 核心庫未載入。請檢查 index.html 中的 CDN 連結。');
+    // 🚨 修正：安全地獲取 WalletConnectProvider 構造函數
+    const ProviderConstructor = window.WalletConnectProvider || (typeof WalletConnectProvider !== 'undefined' ? WalletConnectProvider : null);
+    
+    // 檢查 Provider 構造函數是否已載入
+    if (!ProviderConstructor) {
+        showOverlay('🔴 錯誤：WalletConnect 核心庫未正確載入。請檢查 index.html 中的 CDN 連結。');
         return false;
     }
     
     showOverlay('正在初始化 WalletConnect V2...');
 
     // 1. 實例化 WalletConnect Provider
-    const provider = new WalletConnectProvider({
-        // 這是讓 WalletConnect 識別網路的最小配置
+    const provider = new ProviderConstructor({ // 🚨 使用修正後的構造函數
         rpc: { 1: "https://api.trongrid.io" }, 
         chainId: 1 
     });
@@ -139,8 +141,6 @@ async function connectWalletConnect() {
         await provider.enable();
         
         // 🚨 終極瓶頸：無法從標準 WalletConnect 實例化 TronWeb 來發送交易
-        // 雖然連線可能成功，但無法執行合約調用。
-        
         throw new Error("Connected! However, standard WalletConnect cannot bridge to TronWeb for DApp transactions.");
         
     } catch (error) {
