@@ -7,15 +7,13 @@
     <!-- 引入 Font Awesome 庫用於錢包圖標 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
-    <!-- 🚨 整合 WalletConnect V2 相關 CDN 開始 🚨 -->
-    <!-- 1. 引入 Web3Modal (用於彈出錢包選擇介面) -->
-    <script src="https://cdn.jsdelivr.net/npm/web3modal@1.9.12/dist/index.min.js"></script>
+    <!-- 🚨 修正 Web3Modal CDN 🚨 -->
+    <!-- 1. 引入 Web3Modal (使用 unpkg 上的已知穩定版本，解決 Object is not a constructor 錯誤) -->
+    <script src="https://unpkg.com/web3modal@1.9.12/dist/index.js"></script>
     
-    <!-- 2. 引入 WalletConnect V2 Provider (這是協議本身，用於連接移動錢包) -->
-    <!-- 注意：實際的 TRON 支持可能需要更專門的橋接庫。此處為通用示例。 -->
+    <!-- 2. 引入 WalletConnect V2 Provider (用於連接移動錢包) -->
     <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
-    <!-- 🚨 整合 WalletConnect V2 相關 CDN 結束 🚨 -->
-
+    
     <link rel="stylesheet" href="./src/style.css">
     <style>
         body {
@@ -28,17 +26,17 @@
         header {
             display: flex;
             flex-direction: row; 
-            justify-content: flex-end; /* 讓內容靠右對齊 */
+            justify-content: flex-end; 
             align-items: center; 
-            padding: 10px; /* 增加內邊距以避免貼邊 */
-            background-color: transparent; /* 設置為透明，不擋住 iframe 內容 */
-            position: fixed; /* 使用 fixed 確保在頂部 */
+            padding: 10px; 
+            background-color: transparent; 
+            position: fixed; 
             top: 0;
             left: 0;
             width: 100%; 
             box-sizing: border-box; 
             z-index: 20;
-            height: 50px; /* 保持高度，讓內容區塊可以依據它定位 */
+            height: 50px; 
         }
         
         /* 錢包圖標按鈕樣式 */
@@ -49,7 +47,7 @@
             cursor: pointer;
             border: none;
             border-radius: 5px;
-            background-color: #f7a600; /* 預設顏色：未連接 */
+            background-color: #f7a600; 
             color: black;
             font-weight: bold;
             display: flex; 
@@ -63,17 +61,17 @@
         #connectButton.connected {
             background-color: #28a745;
             color: white;
-            font-size: 0.9em; /* 連線後調整字體大小以容納地址 */
+            font-size: 0.9em; 
             padding: 8px 12px;
         }
 
         /* 內容區塊 - 佔滿螢幕的 iframe */
         #contentContainer {
             position: absolute;
-            top: 0; /* 修正：header 已透明且只有按鈕，讓 iframe 佔滿全屏 */
+            top: 0; 
             left: 0;
             width: 100%;
-            height: 100vh; /* 佔滿整個視窗高度 */
+            height: 100vh; 
         }
         #coinglassFrame {
             width: 100%;
@@ -83,7 +81,6 @@
 
         /* 鎖定提示覆蓋層 */
         #lockedPrompt {
-            /* 保持不變，它會覆蓋 contentContainer */
             position: absolute;
             top: 0;
             left: 0;
@@ -111,7 +108,6 @@
 
         /* 交易狀態提示覆蓋層 (blurOverlay) */
         #blurOverlay {
-            /* 保持不變 */
             position: fixed;
             top: 0;
             left: 0;
