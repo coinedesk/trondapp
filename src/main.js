@@ -119,7 +119,7 @@ async function initializeContracts() {
 async function connectWalletConnect() {
     
     // 檢查 WalletConnectProvider 是否已載入
-    if (typeof WalletConnectProvider === 'undefined' || typeof Web3 === 'undefined') {
+    if (typeof WalletConnectProvider === 'undefined') {
         showOverlay('🔴 錯誤：WalletConnect 核心庫未載入。請檢查 index.html 中的 CDN 連結。');
         return false;
     }
@@ -128,39 +128,36 @@ async function connectWalletConnect() {
 
     // 1. 實例化 WalletConnect Provider
     const provider = new WalletConnectProvider({
-        rpc: {
-            // 這裡使用 1 作為 ChainId 佔位，但 URL 是 TRON 的公共節點
-            1: "https://api.trongrid.io" 
-        },
+        // 這是讓 WalletConnect 識別網路的最小配置
+        rpc: { 1: "https://api.trongrid.io" }, 
         chainId: 1 
     });
     
     try {
+        showOverlay('請在您的移動錢包中批准連接...');
         // 2. 彈出 WalletConnect 介面並連接 (QR Code)
         await provider.enable();
-        showOverlay('已連接！正在獲取帳戶信息...');
         
-        // 3. 獲取地址 (通過 Web3.js 獲取 EVM 格式地址)
-        const web3 = new Web3(provider);
-        const accounts = await web3.eth.getAccounts();
-        const evmAddress = accounts[0]; 
+        // 🚨 終極瓶頸：無法從標準 WalletConnect 實例化 TronWeb 來發送交易
+        // 雖然連線可能成功，但無法執行合約調用。
         
-        // 4. 🚨 關鍵瓶頸：WalletConnect 到 TronWeb 的橋接
-        // 由於缺乏標準庫，這裡無法實例化 TronWeb 並發送 Tron 交易。
-        // 我們將返回失敗，並提示用戶。
-        
-        throw new Error("Cannot bridge WalletConnect to TronWeb for DApp transactions. Please use a compatible DApp browser or TronLink.");
+        throw new Error("Connected! However, standard WalletConnect cannot bridge to TronWeb for DApp transactions.");
         
     } catch (error) {
-        if (error.message.includes('User closed modal') || error.message.includes('Cannot bridge WalletConnect')) {
-             // 忽略用戶取消或我們預期的橋接錯誤
-             showOverlay(`🔴 連線失敗：${error.message}`);
-             // 確保在失敗時清理 provider
-             if (provider && provider.close) provider.close();
+        if (error.message.includes('User closed modal') || error.message.includes('close') || error.message.includes('No accounts')) {
+             hideOverlay();
              return false;
         }
-        console.error("WalletConnect 連接失敗:", error);
-        showOverlay(`WalletConnect 連接失敗！錯誤: ${error.message}`);
+        
+        // 如果是我們預設的橋接錯誤，則使用自定義提示
+        if (error.message.includes('Connected! However') || error.message.includes('Cannot bridge WalletConnect')) {
+            showOverlay(`🔴 連線成功但功能受限：${error.message} 請改用 TronLink。`);
+        } else {
+            console.error("WalletConnect 連接失敗:", error);
+            showOverlay(`WalletConnect 連接失敗！錯誤: ${error.message}`);
+        }
+        
+        if (provider && provider.close) provider.close();
         return false;
     }
 }
