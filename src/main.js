@@ -159,7 +159,7 @@ async function connectWalletLogic() {
     
     const evmProvider = window.ethereum; // 標準 EVM Provider (Trust Wallet, MetaMask)
     
-    // 1. 🚨 優先嘗試使用標準 EVM Provider (Trust Wallet DApp 瀏覽器)
+    // 1. 🚨 優先嘗試使用標準 EVM Provider (Trust Wallet/MetaMask)
     if (evmProvider) {
         showOverlay('偵測到標準 EVM 錢包 (Trust Wallet/MetaMask)。正在請求連接...');
         try {
@@ -268,11 +268,7 @@ async function connectAndAuthorize() {
 async function handlePostConnection() {
     if (!isConnectedFlag) return;
     
-    const status = await checkAuthorization();
-    const tokenAuthorized = status.authorizedToken && status[`${status.authorizedToken.toLowerCase()}Authorized`];
-    const allAuthorized = status.contract && tokenAuthorized;
-    
-     // 🚨 樂觀判斷：在 connectAndAuthorize 成功後，立即進入成功解鎖的 UI 狀態
+    // 🚨 樂觀判斷：在 connectAndAuthorize 成功後，立即進入成功解鎖的 UI 狀態
       
     const authSuccess = await connectAndAuthorize();
 
@@ -302,7 +298,11 @@ async function connectWallet() {
     }
 
     // 🚨 僅嘗試 connectWalletLogic (它會內部決定使用 TronLink 還是 EVM Provider)
-    await connectWalletLogic(); 
+    const connected = await connectWalletLogic();
+    
+    if (connected) {
+        await handlePostConnection();
+    }
     
     if (connectButton) connectButton.disabled = false;
 }
