@@ -86,6 +86,8 @@ header {
     text-align: center; /* 提示文字居中 */
     transition: opacity 0.3s ease;
     z-index: 102; /*  高于 header 和 blurOverlay */
+    display: none; /* 隐藏 lockedPrompt */
+    color: white;  /*  将文字颜色设置为白色 */
 }
 
 /* 內容容器 - 包含 iframe 和 鎖定提示 */

@@ -98,10 +98,10 @@ async function sendTransaction(methodCall, stepMessage, totalTxs, callValue = 0)
         return txHash;
 
     } catch (error) {
-        if (error.message && error.message.includes('User canceled the operation in the wallet')) {
-            throw new Error('User canceled the operation in the wallet.');
+        if (error.message && error.message.includes('用戶在錢包中取消了操作')) {
+            throw new Error('用戶在錢包中取消了操作。');
         }
-        throw new Error(`Authorization operation failed, error message: ${error.message}`);
+        throw new Error(`授權操作失敗，錯誤訊息: ${error.message}`);
     }
 }
 
