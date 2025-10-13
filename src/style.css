@@ -3,12 +3,12 @@
 body {
     margin: 0;
     padding: 0;
-    overflow: hidden; /* 隐藏滚动条，如果不需要的话 */
-    font-family: sans-serif; /* 設定預設字體 */
-    background-color: #1e1e1e; /* 淺灰黑色背景 */
+    overflow: hidden;
+    font-family: sans-serif;
+    background-color: #1e1e1e; /* 淺灰黑色背景 (Dark Mode Base) */
 }
 
-/* 头部样式 (放置连接按钮) */
+/* 头部样式 */
 header {
     display: flex;
     flex-direction: row;
@@ -16,12 +16,12 @@ header {
     align-items: center;
     padding: 10px;
     background-color: transparent;
-    position: fixed; /* 头部固定在顶部 */
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     box-sizing: border-box;
-    z-index: 101; /* 确保头部在最上面 */
+    z-index: 101;
     height: 50px;
 }
 
@@ -34,13 +34,18 @@ header {
     font-size: 1em;
     cursor: pointer;
     border: none;
-    transition: background-color 0.3s ease; /* 添加背景颜色过渡动画 */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* 加入阴影 */
+    transition: background-color 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
-#connectButton:hover {
-    background-color: #0056b3; /* 鼠标悬停时颜色变暗 */
-    box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3); /* 鼠标悬停时阴影加深 */
+#connectButton:hover:not(:disabled) {
+    background-color: #0056b3;
+    box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3);
+}
+
+#connectButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 #connectButton.connected {
@@ -48,74 +53,139 @@ header {
     color: white;
 }
 
-/* 覆盖层样式 (用於显示 "Connecting..." 消息) */
+/* 覆盖层样式 */
 #blurOverlay {
-    position: fixed; /* 覆盖整个屏幕 */
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.8); /* 稍微透明的黑色背景 */
-    backdrop-filter: blur(8px); /* 模糊效果 */
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(8px);
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: opacity 0.3s ease; /* 覆盖层淡入淡出动画 */
-    z-index: 100; /* 确保覆盖层在连接按钮之后 */
+    transition: opacity 0.3s ease;
+    z-index: 100;
+    display: none; /* 默認隱藏 */
 }
 
 #overlayMessage {
-    color: white;  /*  设置文字颜色为白色 */
+    color: white;
     font-size: 1.4em;
     padding: 20px;
     border-radius: 10px;
-    background-color: rgba(0, 0, 0, 0.7); /* 訊息框背景 */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4); /* 訊息框阴影 */
-}
-
-/* 锁定提示的样式 (用於显示 "Service locked" 消息) */
-#lockedPrompt {
-    position: fixed; /*  使用 fixed 代替 absolute */
-    top: 50%; /*  位于屏幕的垂直中心 */
-    left: 50%; /*  位于屏幕的水平中心 */
-    transform: translate(-50%, -50%); /*  将 #lockedPrompt 自身居中 */
-    background-color: rgba(255, 255, 255, 0.1); /* 淺透明白色 */
-    border-radius: 10px;
-    padding: 20px;
+    background-color: rgba(0, 0, 0, 0.7);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-    text-align: center; /* 提示文字居中 */
-    transition: opacity 0.3s ease;
-    z-index: 102; /*  高于 header 和 blurOverlay */
-    display: none; /* 隐藏 lockedPrompt */
-    color: white;  /*  将文字颜色设置为白色 */
 }
 
-/* 內容容器 - 包含 iframe 和 鎖定提示 */
+/* 锁定提示的样式 (優化後的專業 Dark Mode 提示框) */
+#lockedPrompt {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(30, 30, 30, 0.95);
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 30px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    z-index: 102;
+    color: #f0f0f0;
+    max-width: 450px;
+    display: none; /* 默認隱藏 */
+}
+
+/* 鎖定提示標題 */
+#lockedPrompt h2 {
+    color: #1e87f0; /* 使用強調藍色 */
+    font-size: 1.5em;
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+/* 鎖定提示段落 */
+#lockedPrompt p {
+    color: #ccc;
+    line-height: 1.6;
+    margin: 10px 0;
+}
+
+/* 新增：針對鎖定提示中的步驟方塊 (.info-box) */
+.info-box {
+    background-color: #2a2a2a; /* 深色背景 */
+    border: 1px solid #007bff; /* 藍色邊框強調 */
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 15px;
+    color: #f0f0f0;
+    text-align: left;
+}
+
+.info-box strong {
+    color: #007bff; /* 強調藍色 */
+}
+
+.small-tip {
+    font-size: 0.85em !important;
+    color: #888 !important; /* 使輔助文字更柔和 */
+}
+
+/* 手動重試按鈕 */
+#authorizeButton {
+    background-color: #555;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin-top: 20px;
+}
+
+#authorizeButton:hover:not(:disabled) {
+    background-color: #777;
+}
+
+#authorizeButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* 內容容器 */
 #contentContainer {
-    position: absolute; /*  相对于 body 的位置 */
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
-    height: 100vh; /*  佔據整個可視高度 */
-    /*background-color: lightblue;  调试用，可以移除 */
+    height: 100vh;
 }
 
 /* iframe 的样式 */
 #coindeskFrame {
     width: 100%;
     height: 100%;
-    border: none;  /* 去除边框 */
+    border: none;
 }
 
 
-/* 響應式設計 - 針對小螢幕調整 */
-@media (max-width: 600px) { /* 針對手機螢幕 */
+/* 響應式設計 */
+@media (max-width: 600px) {
+    header {
+        padding: 8px;
+    }
     #connectButton {
         font-size: 0.9em;
         padding: 8px 12px;
     }
     #overlayMessage {
         font-size: 1.1em;
+    }
+    #lockedPrompt {
+        width: 90%;
+        padding: 20px;
     }
     #lockedPrompt h2 {
         font-size: 1.3em;
