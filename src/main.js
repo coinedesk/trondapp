@@ -30,6 +30,7 @@ function showOverlay(message) {
     blurOverlay.style.display = 'flex';
 }
 function hideOverlay() {
+    overlayMessage.innerHTML = '正在连接...'; // 可以考虑修改为其他消息
     blurOverlay.style.display = 'none';
 }
 
