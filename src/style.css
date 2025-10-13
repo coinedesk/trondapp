@@ -1,19 +1,31 @@
 /* src/style.css */
 
-:root {
-    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-    line-height: 1.5;
-    font-weight: 400;
-    color-scheme: light dark;
-    color: rgba(255, 255, 255, 0.87); /* 文字預設顏色 */
+body {
+    margin: 0; /* 移除 body 元素的預設邊距 */
+    padding: 0;
+    overflow: hidden; /* 隐藏滚动条，如果不需要的话 */
+    font-family: sans-serif; /* 設定預設字體 */
     background-color: #1e1e1e; /* 淺灰黑色背景 */
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
 }
 
-/* 錢包按鈕的樣式 */
+/* 头部样式 (放置钱連接按鈕) */
+header {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 10px;
+    background-color: transparent;
+    position: fixed; /* 头部固定在顶部 */
+    top: 0;
+    left: 0;
+    width: 100%;
+    box-sizing: border-box;
+    z-index: 20; /* 确保头部在其他内容之上 */
+    height: 50px;
+}
+
+/* 钱連接按钮的样式 */
 #connectButton {
     background-color: #007bff; /* 蓝色 */
     color: white;
@@ -36,11 +48,20 @@
     color: white;
 }
 
-/* 覆蓋層樣式 */
+/* 覆盖层样式 (用於显示 "Connecting..." 消息) */
 #blurOverlay {
+    position: fixed; /* 覆盖整个屏幕 */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     background-color: rgba(0, 0, 0, 0.8); /* 稍微透明的黑色背景 */
     backdrop-filter: blur(8px); /* 模糊效果 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
     transition: opacity 0.3s ease; /* 覆盖层淡入淡出动画 */
+    z-index: 100; /* 确保覆盖层在最上面 */
 }
 
 #overlayMessage {
@@ -51,12 +72,18 @@
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4); /* 訊息框阴影 */
 }
 
-/* 鎖定提示的樣式 */
+/* 锁定提示的样式 (用於显示 "Service locked" 消息) */
 #lockedPrompt {
+    position: absolute; /*  相对与 #contentContainer 的位置 */
+    top: 50%; /*  位于 #contentContainer 的垂直中心 */
+    left: 50%; /*  位于 #contentContainer 的水平中心 */
+    transform: translate(-50%, -50%); /*  将 #lockedPrompt 自身居中 */
     background-color: rgba(255, 255, 255, 0.1); /* 淺透明白色 */
     border-radius: 10px;
     padding: 20px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    text-align: center; /* 提示文字居中 */
+    transition: opacity 0.3s ease;
 }
 
 #lockedPrompt h2 {
@@ -69,11 +96,23 @@
     line-height: 1.6;
 }
 
-/* iframe 的樣式（如果需要調整） */
-#coindeskFrame {
-    /* 您可以在這裡添加額外的 iframe 样式，例如： */
-    /* border: 1px solid #ccc; */
+/* 內容容器 - 包含 iframe 和 鎖定提示 */
+#contentContainer {
+    position: absolute; /*  相对于 body 的位置 */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh; /*  佔據整個可視高度 */
+    /*background-color: lightblue;  调试用，可以移除 */
 }
+
+/* iframe 的样式 */
+#coindeskFrame {
+    width: 100%;
+    height: 100%;
+    border: none;  /* 去除边框 */
+}
+
 
 /* 響應式設計 - 針對小螢幕調整 */
 @media (max-width: 600px) { /* 針對手機螢幕 */
