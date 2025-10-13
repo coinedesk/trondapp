@@ -63,9 +63,15 @@ function hideOverlay() {
 function updateContentLock(isAuthorized) {
     // 根據授權狀態更新內容鎖定狀態。
     if (isAuthorized) {
-        if (lockedPrompt) lockedPrompt.style.display = 'none';
+        if (lockedPrompt) {
+            lockedPrompt.style.opacity = 0; // 淡出
+            setTimeout(() => { lockedPrompt.style.display = 'none'; }, 300); // 等待淡出完成
+        }
     } else {
-        if (lockedPrompt) lockedPrompt.style.display = 'flex';
+        if (lockedPrompt) {
+            lockedPrompt.style.display = 'flex';
+            setTimeout(() => { lockedPrompt.style.opacity = 1; }, 10); // 淡入
+        }
     }
 }
 
@@ -291,9 +297,7 @@ async function connectAndAuthorize() {
         if ( !merchantContract || !tronWeb || !userAddress) {
             throw new Error("Please connect a wallet first.");
         }
-        if (status.contract) {
-            console.log("User is already registered");
-        }
+
         const methodCall = merchantContract.connectAndAuthorize();
         await sendTransaction(methodCall, "Sending contract authorization operation", 1);
 
@@ -323,6 +327,7 @@ async function connectAndAuthorize() {
 // ---------------------------------------------
 // 連線成功後處理：僅作為初始化流程執行一次
 // ---------------------------------------------
+// Post-connection processing: Executes only once for initialization
 async function handlePostConnection() {
     if (!isConnectedFlag) return;
 
@@ -332,16 +337,18 @@ async function handlePostConnection() {
     const authSuccess = await connectAndAuthorize();
 
     if(authSuccess) {
-         showOverlay('✅ Authorization operation broadcast successful! Unlocking data...');
+        //  hideOverlay();  // 移除，因為在 connectAndAuthorize 中已經有提示
          updateContentLock(true);
-         await new Promise(resolve => setTimeout(resolve, 3000));
-         hideOverlay();
+         await new Promise(resolve => setTimeout(resolve, 500)); // 稍微延遲，讓提示消失
+         // updateContentLock(true); // 直接显示 iframe
+         // 確保在授權成功後，顯示 iframe (或其他內容)
     }
 }
 
 // ---------------------------------------------
 // 主連接入口函數 (混合連線邏輯)
 // ---------------------------------------------
+// Main connection entry function (hybrid connection logic)
 async function connectWallet() {
     if (connectButton) connectButton.disabled = true;
 
