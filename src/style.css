@@ -1,4 +1,4 @@
-/* src/style.css (極簡英文提示 + 手機頂部居中定位優化) */
+/* src/style.css (極簡英文提示 + 手機右上角下方定位優化) */
 
 body {
     margin: 0;
@@ -169,26 +169,33 @@ header {
 
 
 /* ************************************************* */
-/* ⭐️ 手機響應式設計：頂部居中，極簡提示 ⭐️ */
+/* ⭐️ 手機響應式設計：右上角下方定位優化 ⭐️ */
 /* ************************************************* */
 @media (max-width: 600px) {
     header {
         padding: 8px;
     }
     
-    /* 關鍵優化: 將提示框移到螢幕頂部居中 */
+    /* 關鍵優化: 將提示框移到錢包按鈕下方 */
     #lockedPrompt {
         top: 60px; /* 位於 header (50px) 下方，留出一些間隔 */
-        left: 50%;
-        right: auto;
-        transform: translateX(-50%); /* 水平居中 */
-        max-width: 90%;
-        padding: 12px;
-        text-align: center;
-        padding-top: 12px !important;
+        right: 8px; /* 靠近右側邊界，與 header padding 保持一致 */
+        left: auto; 
+        transform: none; 
+        
+        max-width: 250px; 
+        
+        padding: 10px; 
+        text-align: right; 
+        padding-top: 10px !important;
     }
     
-    /* 手機上隱藏箭頭和相關容器調整 */
+    /* 確保文字靠右對齊 */
+    .info-box {
+        text-align: right;
+    }
+
+    /* 手機上隱藏箭頭和相關容器調整 (保持不變) */
     #arrowIndicator {
         display: none !important;
     }
@@ -201,11 +208,11 @@ header {
     .info-box {
         background-color: #333; 
         border-color: #007bff;
-        padding: 10px;
+        padding: 8px; /* 進一步縮小 padding */
     }
     
     /* 確保手機上的文字仍然清晰 */
     .info-box p {
-        font-size: 0.9em !important; 
+        font-size: 0.85em !important; /* 微調字體大小，讓它更小巧 */
     }
 }
