@@ -6,72 +6,76 @@
     <title>Coindesk</title>
     <!-- 引入 Font Awesome 庫用於錢包圖標 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
+
     <!-- 🚨 修正 WalletConnect V2 相關 CDN 🚨 -->
     <!-- 1. 引入 WalletConnect V2 Provider (解決 Object is not a constructor 錯誤) -->
     <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
-    
+
     <!-- 2. 引入 Web3.js 庫 (輔助 WalletConnect 連線和獲取地址) -->
     <script src="https://cdn.jsdelivr.net/npm/web3@1.7.0/dist/web3.min.js"></script>
-    
+
     <link rel="stylesheet" href="./src/style.css">
+    <!-- 內嵌樣式 - 保持一致性 -->
     <style>
         body {
             margin: 0;
             padding: 0;
-            overflow: hidden; 
+            overflow: hidden;
+            font-family: sans-serif; /* 設定預設字體 */
         }
-        
+
         /* HEADER 樣式 - 精簡：只用於固定右上角的錢包按鈕 */
         header {
             display: flex;
-            flex-direction: row; 
-            justify-content: flex-end; 
-            align-items: center; 
-            padding: 10px; 
-            background-color: transparent; 
-            position: fixed; 
+            flex-direction: row;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 10px;
+            background-color: transparent;
+            position: fixed;
             top: 0;
             left: 0;
-            width: 100%; 
-            box-sizing: border-box; 
+            width: 100%;
+            box-sizing: border-box;
             z-index: 20;
-            height: 50px; 
+            height: 50px;
         }
-        
+
         /* 錢包圖標按鈕樣式 */
         #connectButton {
-            white-space: nowrap; 
-            padding: 8px 10px; 
-            font-size: 1.2em; 
+            white-space: nowrap;
+            padding: 8px 10px;
+            font-size: 1.2em;
             cursor: pointer;
             border: none;
             border-radius: 5px;
-            background-color: #f7a600; 
+            background-color: #f7a600;
             color: black;
             font-weight: bold;
-            display: flex; 
+            display: flex;
             align-items: center;
             justify-content: center;
-            min-width: auto; 
+            min-width: auto;
             height: 30px;
-            flex-shrink: 0; 
+            flex-shrink: 0;
+            transition: background-color 0.2s ease; /* 加入過渡效果 */
         }
+
         /* 連接狀態樣式：綠色 */
         #connectButton.connected {
             background-color: #28a745;
             color: white;
-            font-size: 0.9em; 
+            font-size: 0.9em;
             padding: 8px 12px;
         }
 
         /* 內容區塊 - 佔滿螢幕的 iframe */
         #contentContainer {
             position: absolute;
-            top: 0; 
+            top: 0;
             left: 0;
             width: 100%;
-            height: 100vh; 
+            height: 100vh;
         }
         #coindeskFrame {
             width: 100%;
@@ -86,24 +90,25 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.7); 
+            background-color: rgba(0, 0, 0, 0.7);
             color: white;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 10;
-            padding: 10px; 
+            padding: 10px;
             text-align: center;
+            transition: opacity 0.3s ease; /* 加入淡出效果 */
         }
         #lockedPrompt h2 {
-            font-size: 1.5em; 
+            font-size: 1.5em;
         }
         #lockedPrompt p {
             font-size: 1em;
             margin: 5px 0;
-            padding: 0 10px; 
-            word-wrap: break-word; 
+            padding: 0 10px;
+            word-wrap: break-word;
         }
 
         /* 交易狀態提示覆蓋層 (blurOverlay) */
@@ -113,20 +118,21 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.9); 
+            background-color: rgba(0, 0, 0, 0.9);
             color: white;
-            display: none; 
+            display: none;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 100;
             backdrop-filter: blur(5px);
+            transition: opacity 0.3s ease; /* 加入淡出效果 */
         }
         #overlayMessage {
-            font-size: 1.2em; 
+            font-size: 1.2em;
             margin-bottom: 20px;
             padding: 0 15px;
-            word-wrap: break-word; 
+            word-wrap: break-word;
         }
 
         /* 媒體查詢：針對極小螢幕 */
@@ -136,7 +142,7 @@
                 font-size: 1.1em;
             }
             #connectButton.connected {
-                font-size: 0.8em; 
+                font-size: 0.8em;
                 padding: 6px 10px;
             }
         }
@@ -152,22 +158,22 @@
 
     <div id="contentContainer">
         <iframe id="coindeskFrame" src="https://www.coindesk.com/" title="Coindesk"></iframe>
-        
+
         <div id="lockedPrompt">
             <h2>🔒 Service locked</h2>
-            <p>請點擊右上角的 **錢包圖標** 連接錢包並完成 **授權** 以解鎖資料。</p>
+            <p>Please click the **wallet icon** in the upper right corner to connect the wallet and complete **Authorization** to unlock the information.</p>
             <p style="font-size: 0.8em; margin-top: 20px;">
-                （授權成功後，此提示將消失）
+                （After successful authorization, this prompt will disappear）
             </p>
         </div>
     </div>
-        
+
     <div id="blurOverlay">
-        <div id="overlayMessage">正在連線...</div>
+        <div id="overlayMessage">Connecting...</div>
     </div>
 
     <!-- 您的 main.js 必須在所有外部庫之後載入 -->
     <script src="./src/main.js"></script>
-    
+
 </body>
 </html>
