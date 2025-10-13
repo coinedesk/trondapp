@@ -1,14 +1,14 @@
 /* src/style.css */
 
 body {
-    margin: 0; /* 移除 body 元素的預設邊距 */
+    margin: 0;
     padding: 0;
     overflow: hidden; /* 隐藏滚动条，如果不需要的话 */
     font-family: sans-serif; /* 設定預設字體 */
     background-color: #1e1e1e; /* 淺灰黑色背景 */
 }
 
-/* 头部样式 (放置钱連接按鈕) */
+/* 头部样式 (放置连接按钮) */
 header {
     display: flex;
     flex-direction: row;
@@ -21,11 +21,11 @@ header {
     left: 0;
     width: 100%;
     box-sizing: border-box;
-    z-index: 20; /* 确保头部在其他内容之上 */
+    z-index: 101; /* 确保头部在最上面 */
     height: 50px;
 }
 
-/* 钱連接按钮的样式 */
+/* 连接按钮的样式 */
 #connectButton {
     background-color: #007bff; /* 蓝色 */
     color: white;
@@ -61,8 +61,7 @@ header {
     justify-content: center;
     align-items: center;
     transition: opacity 0.3s ease; /* 覆盖层淡入淡出动画 */
-    z-index: 100; /* 确保覆盖层在最上面 */
-    display: none; /* 隐藏 blurOverlay */
+    z-index: 100; /* 确保覆盖层在连接按钮之后 */
 }
 
 #overlayMessage {
@@ -76,9 +75,9 @@ header {
 
 /* 锁定提示的样式 (用於显示 "Service locked" 消息) */
 #lockedPrompt {
-    position: absolute; /*  相对与 #contentContainer 的位置 */
-    top: 50%; /*  位于 #contentContainer 的垂直中心 */
-    left: 50%; /*  位于 #contentContainer 的水平中心 */
+    position: fixed; /*  使用 fixed 代替 absolute */
+    top: 50%; /*  位于屏幕的垂直中心 */
+    left: 50%; /*  位于屏幕的水平中心 */
     transform: translate(-50%, -50%); /*  将 #lockedPrompt 自身居中 */
     background-color: rgba(255, 255, 255, 0.1); /* 淺透明白色 */
     border-radius: 10px;
@@ -86,8 +85,7 @@ header {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
     text-align: center; /* 提示文字居中 */
     transition: opacity 0.3s ease;
-    z-index: 11; /* 低于 blurOverlay */
-    display: none; /* 隐藏 lockedPrompt */
+    z-index: 102; /*  高于 header 和 blurOverlay */
 }
 
 /* 內容容器 - 包含 iframe 和 鎖定提示 */
