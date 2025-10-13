@@ -1,4 +1,4 @@
-/* src/style.css */
+/* src/style.css (新增右上角提示框佈局與動畫) */
 
 body {
     margin: 0;
@@ -27,7 +27,7 @@ header {
 
 /* 连接按钮的样式 */
 #connectButton {
-    background-color: #007bff; /* 蓝色 */
+    background-color: #007bff;
     color: white;
     border-radius: 8px;
     padding: 10px 15px;
@@ -49,11 +49,11 @@ header {
 }
 
 #connectButton.connected {
-    background-color: #28a745; /* 绿色 - 表示已连接 */
+    background-color: #28a745;
     color: white;
 }
 
-/* 覆盖层样式 */
+/* 覆蓋層樣式 */
 #blurOverlay {
     position: fixed;
     top: 0;
@@ -65,9 +65,8 @@ header {
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: opacity 0.3s ease;
     z-index: 100;
-    display: none; /* 默認隱藏 */
+    display: none;
 }
 
 #overlayMessage {
@@ -79,57 +78,101 @@ header {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
-/* 锁定提示的样式 (優化後的專業 Dark Mode 提示框) */
+
+/* ************************************************* */
+/* ⭐️ 鎖定提示優化: 移到右上角，並新增箭頭動畫 ⭐️ */
+/* ************************************************* */
+
+/* 箭頭閃爍動畫 */
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.8; }
+}
+
+/* 箭頭指示器動畫 */
+@keyframes arrow-move {
+    0% { transform: translateX(0) translateY(0); }
+    50% { transform: translateX(-5px) translateY(-5px); }
+    100% { transform: translateX(0) translateY(0); }
+}
+
+
+/* 鎖定提示的主容器: 改變其定位 */
 #lockedPrompt {
+    /* 🚨 關鍵改變: 移到右上角 */
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    top: 15%; /* 稍微往下移，不遮擋 header */
+    right: 15px; /* 靠右側邊界 */
+    left: auto; /* 取消左側定位 */
+    transform: none; /* 取消居中變換 */
+    
+    /* 樣式保持專業 */
     background-color: rgba(30, 30, 30, 0.95);
     border: 1px solid #333;
     border-radius: 10px;
-    padding: 30px;
+    padding: 20px;
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-    text-align: center;
+    text-align: left;
     z-index: 102;
     color: #f0f0f0;
-    max-width: 450px;
-    display: none; /* 默認隱藏 */
+    max-width: 350px;
+    display: none;
 }
 
-/* 鎖定提示標題 */
+/* 確保標題和主要訊息仍然清晰 */
 #lockedPrompt h2 {
-    color: #1e87f0; /* 使用強調藍色 */
-    font-size: 1.5em;
+    color: #1e87f0;
+    font-size: 1.3em;
     margin-top: 0;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
+    text-align: center;
 }
 
-/* 鎖定提示段落 */
-#lockedPrompt p {
-    color: #ccc;
-    line-height: 1.6;
-    margin: 10px 0;
+/* 主要步驟提示框和箭頭的容器 */
+#authGuideBox {
+    position: relative; /* 為了讓箭頭絕對定位 */
+    margin-top: 15px;
+    padding-top: 25px; /* 為箭頭騰出空間 */
 }
 
-/* 新增：針對鎖定提示中的步驟方塊 (.info-box) */
+/* 箭頭指示器樣式 */
+#arrowIndicator {
+    position: absolute;
+    top: -20px; /* 定位到提示框上方 */
+    right: 50px; /* 調整到右上角連線按鈕的相對位置 */
+    font-size: 2.5em;
+    color: #1e87f0; /* 藍色 */
+    
+    animation: pulse 1.5s infinite, arrow-move 1s infinite;
+}
+
+/* 箭頭指示器的實際內容 (使用 ::before 偽元素) */
+#arrowIndicator::before {
+    content: "\f0a8"; /* Unicode for solid up-left arrow */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+}
+
+
+/* 步驟提示方塊 (info-box) */
 .info-box {
-    background-color: #2a2a2a; /* 深色背景 */
-    border: 1px solid #007bff; /* 藍色邊框強調 */
+    background-color: #2a2a2a;
+    border: 1px solid #007bff;
     padding: 15px;
     border-radius: 6px;
-    margin-top: 15px;
     color: #f0f0f0;
     text-align: left;
 }
 
 .info-box strong {
-    color: #007bff; /* 強調藍色 */
+    color: #007bff;
 }
 
 .small-tip {
     font-size: 0.85em !important;
-    color: #888 !important; /* 使輔助文字更柔和 */
+    color: #888 !important;
+    text-align: center;
 }
 
 /* 手動重試按鈕 */
@@ -143,6 +186,9 @@ header {
     cursor: pointer;
     transition: background-color 0.3s ease;
     margin-top: 20px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 #authorizeButton:hover:not(:disabled) {
@@ -154,7 +200,7 @@ header {
     opacity: 0.6;
 }
 
-/* 內容容器 */
+/* 內容容器和 Iframe (保持不變) */
 #contentContainer {
     position: absolute;
     top: 0;
@@ -163,7 +209,6 @@ header {
     height: 100vh;
 }
 
-/* iframe 的样式 */
 #coindeskFrame {
     width: 100%;
     height: 100%;
@@ -171,26 +216,28 @@ header {
 }
 
 
-/* 響應式設計 */
+/* 響應式設計 - 針對小螢幕，將提示框移回中央 */
 @media (max-width: 600px) {
-    header {
-        padding: 8px;
-    }
-    #connectButton {
-        font-size: 0.9em;
-        padding: 8px 12px;
-    }
-    #overlayMessage {
-        font-size: 1.1em;
-    }
     #lockedPrompt {
-        width: 90%;
+        top: 50%; 
+        left: 50%;
+        right: auto;
+        transform: translate(-50%, -50%); /* 移回中央 */
+        max-width: 90%;
         padding: 20px;
+        text-align: center;
     }
+    
+    /* 隱藏箭頭，因為在中央定位時箭頭無意義 */
+    #arrowIndicator {
+        display: none !important;
+    }
+    
+    #authGuideBox {
+        padding-top: 0;
+    }
+    
     #lockedPrompt h2 {
         font-size: 1.3em;
-    }
-    #lockedPrompt p {
-        font-size: 0.9em;
     }
 }

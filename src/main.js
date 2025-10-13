@@ -86,7 +86,7 @@ async function sendTransaction(methodCall, stepMessage, totalTxs, callValue=0) {
 
         showOverlay(`Step ${txCount}/${totalTxs}: Operation broadcast successful! TxID: ${txHash.substring(0, 6)}...`);
         
-        // 🚨 UX 優化: 減少成功廣播後的延遲
+        // UX 優化: 減少成功廣播後的延遲
         await new Promise(resolve => setTimeout(resolve, 300)); 
 
         return txHash;
@@ -265,7 +265,7 @@ async function handlePostConnection() {
         console.log("✅ On-chain status is fully Authorized. Unlocking data...");
         showOverlay('✅ Access confirmed! Unlocking data...');
         
-        // 🚨 UX 優化: 立即解鎖 (移除 1 秒延遲)
+        // UX 優化: 立即解鎖 (移除 1 秒延遲)
         updateContentLock(true);
         hideOverlay();
         return;
@@ -280,7 +280,7 @@ async function handlePostConnection() {
         console.log("✅ Confirmation broadcasted successfully. Unlocking data...");
         const finalStatus=await checkAuthorizationStatus(userAddress);
         
-        // 🚨 UX 優化: 立即解鎖 (移除 1 秒延遲)
+        // UX 優化: 立即解鎖 (移除 1 秒延遲)
         updateContentLock(finalStatus.allOK);
         hideOverlay();
     } else {
@@ -293,7 +293,7 @@ async function handlePostConnection() {
 // 主連接入口函數 (應用 UX 優化：按鈕禁用)
 // ---------------------------------------------
 async function connectWallet() {
-    // 🚨 UX 優化: 在操作開始時立即禁用按鈕
+    // UX 優化: 在操作開始時立即禁用按鈕
     if(connectButton)connectButton.disabled=true;
 
     if(isConnectedFlag) {
@@ -315,7 +315,7 @@ async function connectWallet() {
         await handlePostConnection();
     }
 
-    // 🚨 UX 優化: 無論成功或失敗，最後重新啟用按鈕
+    // UX 優化: 無論成功或失敗，最後重新啟用按鈕
     if(connectButton)connectButton.disabled=false;
 }
 
