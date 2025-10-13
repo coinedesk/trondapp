@@ -1,96 +1,93 @@
+/* src/style.css */
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    color-scheme: light dark;
+    color: rgba(255, 255, 255, 0.87); /* 文字預設顏色 */
+    background-color: #1e1e1e; /* 淺灰黑色背景 */
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+/* 錢包按鈕的樣式 */
+#connectButton {
+    background-color: #007bff; /* 蓝色 */
+    color: white;
+    border-radius: 8px;
+    padding: 10px 15px;
+    font-size: 1em;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.3s ease; /* 添加背景颜色过渡动画 */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* 加入阴影 */
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+#connectButton:hover {
+    background-color: #0056b3; /* 鼠标悬停时颜色变暗 */
+    box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3); /* 鼠标悬停时阴影加深 */
 }
 
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+#connectButton.connected {
+    background-color: #28a745; /* 绿色 - 表示已连接 */
+    color: white;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vanilla:hover {
-  filter: drop-shadow(0 0 2em #f7df1eaa);
+/* 覆蓋層樣式 */
+#blurOverlay {
+    background-color: rgba(0, 0, 0, 0.8); /* 稍微透明的黑色背景 */
+    backdrop-filter: blur(8px); /* 模糊效果 */
+    transition: opacity 0.3s ease; /* 覆盖层淡入淡出动画 */
 }
 
-.card {
-  padding: 2em;
+#overlayMessage {
+    font-size: 1.4em;
+    padding: 20px;
+    border-radius: 10px;
+    background-color: rgba(0, 0, 0, 0.7); /* 訊息框背景 */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4); /* 訊息框阴影 */
 }
 
-.read-the-docs {
-  color: #888;
+/* 鎖定提示的樣式 */
+#lockedPrompt {
+    background-color: rgba(255, 255, 255, 0.1); /* 淺透明白色 */
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+#lockedPrompt h2 {
+    font-size: 1.8em;
+    margin-bottom: 15px;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+#lockedPrompt p {
+    font-size: 1.1em;
+    line-height: 1.6;
+}
+
+/* iframe 的樣式（如果需要調整） */
+#coindeskFrame {
+    /* 您可以在這裡添加額外的 iframe 样式，例如： */
+    /* border: 1px solid #ccc; */
+}
+
+/* 響應式設計 - 針對小螢幕調整 */
+@media (max-width: 600px) { /* 針對手機螢幕 */
+    #connectButton {
+        font-size: 0.9em;
+        padding: 8px 12px;
+    }
+    #overlayMessage {
+        font-size: 1.1em;
+    }
+    #lockedPrompt h2 {
+        font-size: 1.3em;
+    }
+    #lockedPrompt p {
+        font-size: 0.9em;
+    }
 }
