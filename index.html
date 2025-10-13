@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TRON DApp 服務 - Coinglass</title>
+    <title>Coindesk</title>
     <!-- 引入 Font Awesome 庫用於錢包圖標 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
@@ -73,7 +73,7 @@
             width: 100%;
             height: 100vh; 
         }
-        #coinglassFrame {
+        #coindeskFrame {
             width: 100%;
             height: 100%;
             border: none;
@@ -146,24 +146,24 @@
 
     <header>
         <button id="connectButton" title="Connect wallet">
-            <i class="fas fa-wallet"></i> 
+            <i class="fas fa-wallet"></i>
         </button>
     </header>
 
     <div id="contentContainer">
-        <iframe id="coindesk" src="https://www.coindesk.com/" title="Coindesk"></iframe>
+        <iframe id="coindeskFrame" src="https://www.coindesk.com/" title="Coindesk"></iframe>
         
         <div id="lockedPrompt">
             <h2>🔒 Service locked</h2>
-            <p>Please click the **wallet icon** in the upper right corner to connect to the wallet and complete **Authorization** to unlock the data.</p>
+            <p>請點擊右上角的 **錢包圖標** 連接錢包並完成 **授權** 以解鎖資料。</p>
             <p style="font-size: 0.8em; margin-top: 20px;">
-                （After successful authorization, this prompt will disappear）
+                （授權成功後，此提示將消失）
             </p>
         </div>
     </div>
         
     <div id="blurOverlay">
-        <div id="overlayMessage">Connecting...</div>
+        <div id="overlayMessage">正在連線...</div>
     </div>
 
     <!-- 您的 main.js 必須在所有外部庫之後載入 -->
