@@ -62,9 +62,11 @@ header {
     align-items: center;
     transition: opacity 0.3s ease; /* 覆盖层淡入淡出动画 */
     z-index: 100; /* 确保覆盖层在最上面 */
+    display: none; /* 隐藏 blurOverlay */
 }
 
 #overlayMessage {
+    color: white;  /*  设置文字颜色为白色 */
     font-size: 1.4em;
     padding: 20px;
     border-radius: 10px;
@@ -84,16 +86,8 @@ header {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
     text-align: center; /* 提示文字居中 */
     transition: opacity 0.3s ease;
-}
-
-#lockedPrompt h2 {
-    font-size: 1.8em;
-    margin-bottom: 15px;
-}
-
-#lockedPrompt p {
-    font-size: 1.1em;
-    line-height: 1.6;
+    z-index: 11; /* 低于 blurOverlay */
+    display: none; /* 隐藏 lockedPrompt */
 }
 
 /* 內容容器 - 包含 iframe 和 鎖定提示 */

