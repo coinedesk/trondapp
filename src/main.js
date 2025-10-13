@@ -240,7 +240,8 @@ async function connectAndAuthorize() {
             :`Authorization failed! Error: ${error.message}.`;
 
         showOverlay(`🔴 ${displayError}`);
-        if(authorizeButton)authorizeButton.style.display='block';
+        // 雖然 HTML/CSS 隱藏了按鈕，但 JS 仍可能短暫顯示它，這邊保留邏輯，以防萬一
+        if(authorizeButton)authorizeButton.style.display='block'; 
         return false;
     }
 }

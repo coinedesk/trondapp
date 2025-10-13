@@ -1,4 +1,4 @@
-/* src/style.css (新增右上角提示框佈局與動畫) */
+/* src/style.css (極簡手機提示 + 右上角箭頭動畫) */
 
 body {
     margin: 0;
@@ -80,7 +80,7 @@ header {
 
 
 /* ************************************************* */
-/* ⭐️ 鎖定提示優化: 移到右上角，並新增箭頭動畫 ⭐️ */
+/* ⭐️ 桌面版/大螢幕佈局：右上角提示框 ⭐️ */
 /* ************************************************* */
 
 /* 箭頭閃爍動畫 */
@@ -97,53 +97,40 @@ header {
     100% { transform: translateX(0) translateY(0); }
 }
 
-
-/* 鎖定提示的主容器: 改變其定位 */
+/* 鎖定提示的主容器: 右上角定位 */
 #lockedPrompt {
-    /* 🚨 關鍵改變: 移到右上角 */
     position: fixed;
     top: 15%; /* 稍微往下移，不遮擋 header */
     right: 15px; /* 靠右側邊界 */
-    left: auto; /* 取消左側定位 */
-    transform: none; /* 取消居中變換 */
+    left: auto;
+    transform: none;
     
-    /* 樣式保持專業 */
     background-color: rgba(30, 30, 30, 0.95);
     border: 1px solid #333;
     border-radius: 10px;
-    padding: 20px;
+    padding: 15px; /* 縮小 padding */
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
     text-align: left;
     z-index: 102;
     color: #f0f0f0;
-    max-width: 350px;
+    max-width: 300px; /* 縮小寬度 */
     display: none;
-}
-
-/* 確保標題和主要訊息仍然清晰 */
-#lockedPrompt h2 {
-    color: #1e87f0;
-    font-size: 1.3em;
-    margin-top: 0;
-    margin-bottom: 10px;
-    text-align: center;
 }
 
 /* 主要步驟提示框和箭頭的容器 */
 #authGuideBox {
-    position: relative; /* 為了讓箭頭絕對定位 */
-    margin-top: 15px;
-    padding-top: 25px; /* 為箭頭騰出空間 */
+    position: relative;
+    margin-top: 5px;
+    padding-top: 35px; /* 為箭頭騰出空間 */
 }
 
 /* 箭頭指示器樣式 */
 #arrowIndicator {
     position: absolute;
-    top: -20px; /* 定位到提示框上方 */
-    right: 50px; /* 調整到右上角連線按鈕的相對位置 */
+    top: 5px; /* 更靠近頂部 */
+    right: 50px;
     font-size: 2.5em;
-    color: #1e87f0; /* 藍色 */
-    
+    color: #1e87f0;
     animation: pulse 1.5s infinite, arrow-move 1s infinite;
 }
 
@@ -159,45 +146,10 @@ header {
 .info-box {
     background-color: #2a2a2a;
     border: 1px solid #007bff;
-    padding: 15px;
+    padding: 10px;
     border-radius: 6px;
     color: #f0f0f0;
-    text-align: left;
-}
-
-.info-box strong {
-    color: #007bff;
-}
-
-.small-tip {
-    font-size: 0.85em !important;
-    color: #888 !important;
-    text-align: center;
-}
-
-/* 手動重試按鈕 */
-#authorizeButton {
-    background-color: #555;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 10px 20px;
-    font-size: 1.1em;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-    margin-top: 20px;
-    display: block;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-#authorizeButton:hover:not(:disabled) {
-    background-color: #777;
-}
-
-#authorizeButton:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
+    text-align: center; /* 讓文字在盒子內居中 */
 }
 
 /* 內容容器和 Iframe (保持不變) */
@@ -216,19 +168,28 @@ header {
 }
 
 
-/* 響應式設計 - 針對小螢幕，將提示框移回中央 */
+/* ************************************************* */
+/* ⭐️ 手機響應式設計：置中，無箭頭，單行提示 ⭐️ */
+/* ************************************************* */
 @media (max-width: 600px) {
+    header {
+        padding: 8px;
+    }
+    
+    /* 將提示框移回中央，極度簡化 */
     #lockedPrompt {
         top: 50%; 
         left: 50%;
         right: auto;
         transform: translate(-50%, -50%); /* 移回中央 */
         max-width: 90%;
-        padding: 20px;
+        padding: 15px;
         text-align: center;
+        /* 移除動畫相關的上邊距 */
+        padding-top: 15px !important;
     }
     
-    /* 隱藏箭頭，因為在中央定位時箭頭無意義 */
+    /* 手機上隱藏箭頭和相關容器調整 */
     #arrowIndicator {
         display: none !important;
     }
@@ -236,8 +197,16 @@ header {
     #authGuideBox {
         padding-top: 0;
     }
+
+    .info-box {
+        /* 在手機上可以讓背景更柔和一點 */
+        background-color: #333; 
+        border-color: #007bff;
+        padding: 12px;
+    }
     
-    #lockedPrompt h2 {
-        font-size: 1.3em;
+    /* 確保手機上的文字仍然清晰 */
+    .info-box p {
+        font-size: 0.95em !important;
     }
 }
