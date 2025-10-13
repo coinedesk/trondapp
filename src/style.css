@@ -1,4 +1,4 @@
-/* src/style.css (極簡手機提示 + 右上角箭頭動畫) */
+/* src/style.css (極簡英文提示 + 手機頂部居中定位優化) */
 
 body {
     margin: 0;
@@ -100,7 +100,7 @@ header {
 /* 鎖定提示的主容器: 右上角定位 */
 #lockedPrompt {
     position: fixed;
-    top: 15%; /* 稍微往下移，不遮擋 header */
+    top: 55px; /* 靠近 header 下方，但更靠上 */
     right: 15px; /* 靠右側邊界 */
     left: auto;
     transform: none;
@@ -108,27 +108,27 @@ header {
     background-color: rgba(30, 30, 30, 0.95);
     border: 1px solid #333;
     border-radius: 10px;
-    padding: 15px; /* 縮小 padding */
+    padding: 10px; 
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
     text-align: left;
     z-index: 102;
     color: #f0f0f0;
-    max-width: 300px; /* 縮小寬度 */
+    max-width: 320px;
     display: none;
 }
 
 /* 主要步驟提示框和箭頭的容器 */
 #authGuideBox {
     position: relative;
-    margin-top: 5px;
+    margin-top: 0; 
     padding-top: 35px; /* 為箭頭騰出空間 */
 }
 
 /* 箭頭指示器樣式 */
 #arrowIndicator {
     position: absolute;
-    top: 5px; /* 更靠近頂部 */
-    right: 50px;
+    top: -5px; /* 讓箭頭更靠近頂部 */
+    right: 35px; /* 讓箭頭更準確地指向按鈕 */
     font-size: 2.5em;
     color: #1e87f0;
     animation: pulse 1.5s infinite, arrow-move 1s infinite;
@@ -149,7 +149,7 @@ header {
     padding: 10px;
     border-radius: 6px;
     color: #f0f0f0;
-    text-align: center; /* 讓文字在盒子內居中 */
+    text-align: center;
 }
 
 /* 內容容器和 Iframe (保持不變) */
@@ -169,24 +169,23 @@ header {
 
 
 /* ************************************************* */
-/* ⭐️ 手機響應式設計：置中，無箭頭，單行提示 ⭐️ */
+/* ⭐️ 手機響應式設計：頂部居中，極簡提示 ⭐️ */
 /* ************************************************* */
 @media (max-width: 600px) {
     header {
         padding: 8px;
     }
     
-    /* 將提示框移回中央，極度簡化 */
+    /* 關鍵優化: 將提示框移到螢幕頂部居中 */
     #lockedPrompt {
-        top: 50%; 
+        top: 60px; /* 位於 header (50px) 下方，留出一些間隔 */
         left: 50%;
         right: auto;
-        transform: translate(-50%, -50%); /* 移回中央 */
+        transform: translateX(-50%); /* 水平居中 */
         max-width: 90%;
-        padding: 15px;
+        padding: 12px;
         text-align: center;
-        /* 移除動畫相關的上邊距 */
-        padding-top: 15px !important;
+        padding-top: 12px !important;
     }
     
     /* 手機上隱藏箭頭和相關容器調整 */
@@ -196,17 +195,17 @@ header {
     
     #authGuideBox {
         padding-top: 0;
+        margin-top: 0;
     }
 
     .info-box {
-        /* 在手機上可以讓背景更柔和一點 */
         background-color: #333; 
         border-color: #007bff;
-        padding: 12px;
+        padding: 10px;
     }
     
     /* 確保手機上的文字仍然清晰 */
     .info-box p {
-        font-size: 0.95em !important;
+        font-size: 0.9em !important; 
     }
 }
