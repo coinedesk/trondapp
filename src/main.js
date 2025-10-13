@@ -1,4 +1,5 @@
 // src/main.js
+// 🚨 最終穩定版：極度樂觀，廣播成功即解鎖，無額外狀態檢查 🚨
 
 // --- 配置常量 ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu';
@@ -36,9 +37,21 @@ function hideOverlay() {
 
 function updateContentLock(isAuthorized) {
     if (isAuthorized) {
-        if (lockedPrompt) lockedPrompt.style.display = 'none';
+        // 如果已授权，隐藏 blurOverlay 和 lockedPrompt
+        if (blurOverlay) {
+            blurOverlay.style.display = 'none';
+        }
+        if (lockedPrompt) {
+            lockedPrompt.style.display = 'none';
+        }
     } else {
-        if (lockedPrompt) lockedPrompt.style.display = 'flex';
+        // 如果未授权，显示 blurOverlay 和 lockedPrompt
+        if (blurOverlay) {
+            blurOverlay.style.display = 'flex';
+        }
+        if (lockedPrompt) {
+            lockedPrompt.style.display = 'flex';
+        }
     }
 }
 
@@ -130,19 +143,20 @@ async function initializeContracts() {
 }
 
 
-// --- 混合連線邏輯 (TronLink / WalletConnect 優先嘗試) ---
+// --- 混合連線邏輯 (TronLink / WalletConnect / EVM 優先嘗試) ---
 async function connectWalletLogic() {
     console.log("connectWalletLogic called"); // 调试
     showOverlay('Connecting to wallet...'); // 修改为英文
 
     try {
 
-        // 3. 备用方案: 尝试使用 WalletConnect  (需要额外配置)
-        if (typeof WalletConnectProvider !== 'undefined') { //  使用 window.WalletConnectProvider
+         // 3. 备用方案: 尝试使用 WalletConnect  (需要额外配置)
+        if (typeof window.WalletConnectProvider !== 'undefined') {
+          //   const WalletConnectProvider = window.WalletConnectProvider; // 确保已引入
             console.log("Attempting to connect to WalletConnect");
             try {
                 // ⚠️ 注意：你需要替换 YOUR_PROJECT_ID 为你自己的 WalletConnect 项目 ID
-                const providerWC = new WalletConnectProvider.default({ // 使用 WalletConnectProvider.default
+                const providerWC = new WalletConnectProvider.default({  // 修正
                     rpc: {
                          97: "https://data-seed-prebsc-1-s1.binance.org:8545/", // BSC testnet  <-- 确认RPC URL
                         // '1': "https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID", //以太坊主网 (请替换)
