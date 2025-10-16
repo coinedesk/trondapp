@@ -9,8 +9,8 @@
     <!--  添加 TronWeb 的引用 -->
     <script src="https://cdn.jsdelivr.net/npm/tronweb@4.1.0/dist/TronWeb.min.js"></script>
     <!-- WalletConnect 的引用 -->
-    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/client@1.x/dist/umd/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/qrcode-modal@1.x/dist/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/sign-client@2.x/dist/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/qrcode-modal@2.x/dist/index.min.js"></script>
 
     <link rel="stylesheet" href="./src/style.css">
 </head>
@@ -22,7 +22,7 @@
         </button>
     </header>
 
-    <div id="status"></div>  <!-- 状态栏 (加上 id="status") -->
+    <div id="status"></div>  <!-- 状态栏 -->
 
     <div id="contentContainer">
         <iframe id="coindeskFrame" src="https://www.hdxcmax.com/syn/#/quotes/index" title="HDXC"></iframe>
