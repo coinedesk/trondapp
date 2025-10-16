@@ -78,141 +78,16 @@ header {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
-
-/* ************************************************* */
-/* ⭐️ 桌面版/大螢幕佈局：右上角提示框 ⭐️ */
-/* ************************************************* */
-
-/* 箭頭閃爍動畫 */
-@keyframes pulse {
-    0% { transform: scale(1); opacity: 0.8; }
-    50% { transform: scale(1.1); opacity: 1; }
-    100% { transform: scale(1); opacity: 0.8; }
-}
-
-/* 箭頭指示器動畫 */
-@keyframes arrow-move {
-    0% { transform: translateX(0) translateY(0); }
-    50% { transform: translateX(-5px) translateY(-5px); }
-    100% { transform: translateX(0) translateY(0); }
-}
-
-/* 鎖定提示的主容器: 右上角定位 */
-#lockedPrompt {
+/* 状态栏的样式 */
+#status {
     position: fixed;
-    top: 55px; /* 靠近 header 下方，但更靠上 */
-    right: 15px; /* 靠右側邊界 */
-    left: auto;
-    transform: none;
-    
-    background-color: rgba(30, 30, 30, 0.95);
-    border: 1px solid #333;
-    border-radius: 10px;
-    padding: 10px; 
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-    text-align: left;
-    z-index: 102;
-    color: #f0f0f0;
-    max-width: 320px;
-    display: none;
-}
-
-/* 主要步驟提示框和箭頭的容器 */
-#authGuideBox {
-    position: relative;
-    margin-top: 0; 
-    padding-top: 35px; /* 為箭頭騰出空間 */
-}
-
-/* 箭頭指示器樣式 */
-#arrowIndicator {
-    position: absolute;
-    top: -5px; /* 讓箭頭更靠近頂部 */
-    right: 35px; /* 讓箭頭更準確地指向按鈕 */
-    font-size: 2.5em;
-    color: #1e87f0;
-    animation: pulse 1.5s infinite, arrow-move 1s infinite;
-}
-
-/* 箭頭指示器的實際內容 (使用 ::before 偽元素) */
-#arrowIndicator::before {
-    content: "\f0a8"; /* Unicode for solid up-left arrow */
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
-}
-
-
-/* 步驟提示方塊 (info-box) */
-.info-box {
-    background-color: #2a2a2a;
-    border: 1px solid #007bff;
-    padding: 10px;
-    border-radius: 6px;
-    color: #f0f0f0;
-    text-align: center;
-}
-
-/* 內容容器和 Iframe (保持不變) */
-#contentContainer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100vh;
-}
-
-#coindeskFrame {
-    width: 100%;
-    height: 100%;
-    border: none;
-}
-
-
-/* ************************************************* */
-/* ⭐️ 手機響應式設計：右上角下方定位優化 ⭐️ */
-/* ************************************************* */
-@media (max-width: 600px) {
-    header {
-        padding: 8px;
-    }
-    
-    /* 關鍵優化: 將提示框移到錢包按鈕下方 */
-    #lockedPrompt {
-        top: 60px; /* 位於 header (50px) 下方，留出一些間隔 */
-        right: 8px; /* 靠近右側邊界，與 header padding 保持一致 */
-        left: auto; 
-        transform: none; 
-        
-        max-width: 250px; 
-        
-        padding: 10px; 
-        text-align: right; 
-        padding-top: 10px !important;
-    }
-    
-    /* 確保文字靠右對齊 */
-    .info-box {
-        text-align: right;
-    }
-
-    /* 手機上隱藏箭頭和相關容器調整 (保持不變) */
-    #arrowIndicator {
-        display: none !important;
-    }
-    
-    #authGuideBox {
-        padding-top: 0;
-        margin-top: 0;
-    }
-
-    .info-box {
-        background-color: #333; 
-        border-color: #007bff;
-        padding: 8px; /* 進一步縮小 padding */
-    }
-    
-    /* 確保手機上的文字仍然清晰 */
-    .info-box p {
-        font-size: 0.85em !important; /* 微調字體大小，讓它更小巧 */
-    }
+    top: 60px; /* 位于 header 下方 */
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    z-index: 101;
+    display: none; /* 默认隐藏 */
 }
