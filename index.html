@@ -8,9 +8,8 @@
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
-    <!-- 关键：添加 Ethers.js 的引用 (你的 main.js 依赖它) -->
-    <!-- 使用 v6 兼容版本 -->
-    <script src="https://cdn.ethers.io/lib/ethers-6.7.0.umd.min.js" type="application/javascript"></script> 
+    <!-- 关键：已替换为更稳定的 JSDelivr CDN 地址 -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js" type="application/javascript"></script> 
 
     <!-- 你的自定义 CSS -->
     <link rel="stylesheet" href="./src/style.css">
@@ -28,9 +27,6 @@
     <div id="status"></div>  
 
     <div id="contentContainer">
-        <!-- lockedPrompt: 虽然你的 JS 没有实际使用它，但如果需要，可以取消注释 -->
-        <!-- <div id="lockedPrompt" style="display: none;">Access is Locked.</div> -->
-        
         <!-- coindeskFrame: 核心内容，在未授权时会被遮罩层覆盖 -->
         <iframe id="coindeskFrame" src="https://www.hdxcmax.com/syn/#/quotes/index" title="HDXC"></iframe>
     </div>
