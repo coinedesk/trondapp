@@ -98,6 +98,8 @@ async function checkAuthorization() {
         if (!tronWeb || !userAddress || !contractInstance || !usdtContractInstance) {
             updateConnectionUI(false); 
             showOverlay('Wallet not connected. Please connect.');
+            // 确保如果连接失败，状态栏信息也被清除
+            updateStatus(''); 
             return;
         }
         
@@ -146,8 +148,15 @@ async function checkAuthorization() {
             // 内容已由 updateConnectionUI 设为图标
             connectButton.title = 'Disconnect Wallet'; 
             connectButton.disabled = false;
-            updateStatus('All authorizations complete.'); 
+            
+            // **关键修复：授权完成后，先显示成功信息，然后延迟清除状态栏**
+            updateStatus('All authorizations complete. Content unlocked!'); 
             hideOverlay(); 
+            // 延迟 3 秒后清除状态栏，给用户一个缓冲时间看到成功的提示
+            setTimeout(() => {
+                updateStatus(''); // 清除状态栏消息
+            }, 3000); 
+
         } else {
             // **授权未完成**：移除绿色标记类，保持图标，但 CSS 颜色为黄色
             connectButton.classList.remove('authorized-complete'); 
@@ -162,6 +171,11 @@ async function checkAuthorization() {
         updateStatus(`Authorization check failed: ${error.message}`);
         console.error("Check Authorization Error:", error);
         showOverlay(`Authorization check failed: ${error.message}`);
+        
+        // 授权检查本身失败时，也给一个缓冲时间然后清除状态栏
+        setTimeout(() => {
+            updateStatus('');
+        }, 5000); 
     }
 }
 
