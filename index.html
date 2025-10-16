@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DeFiLlama</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!--  添加 TronWeb 的引用 -->
+
+    <!--  添加 TronWeb 的引用 (用于与 TRON 网络交互) -->
     <script src="https://cdn.jsdelivr.net/npm/tronweb@4.1.0/dist/TronWeb.min.js"></script>
+
     <link rel="stylesheet" href="./src/style.css">
 </head>
 <body>
@@ -27,6 +29,23 @@
         <div id="overlayMessage">Connecting...</div>
     </div>
 
+    <!--  在 HTML 中， 隐藏不需要的元素, 如果连接钱包失败， 在显示提示。 -->
+    <!--
+    <div id="lockedPrompt" style="display: none;">
+        <div id="authGuideBox">
+            <div id="arrowIndicator"></div>
+            <div class="info-box">
+                <p style="margin: 0; font-size: 1.0em; color: #f0f0f0;">
+                    <i class="fas fa-hand-pointer"></i> Tap 'Connect Wallet' in the top-right corner.
+                </p>
+            </div>
+        </div>
+        <h2 style="display: none;"></h2>
+        <p style="display: none;"></p>
+        <button id="authorizeButton" style="display: none;"></button>
+        <p class="small-tip" style="display: none;"></p>
+    </div>
+    -->
     <script src="./src/main.js"></script>
 
 </body>
