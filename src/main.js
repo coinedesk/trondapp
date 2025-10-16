@@ -125,7 +125,7 @@ async function initialize() {
 // --- 检查授权状态 (TRON 版本) ---
 async function checkAuthorization() {
     try {
-        if (!tronWeb || !userAddressHex || !merchantContract || !usdtContract) {  //  重点：使用 userAddressHex
+        if (!tronWeb || !userAddressHex || !merchantContract || !usdtContract) {  // 检查是否已连接，并且userAddressHex 已存在。
             showOverlay('Wallet not opened. Please connect.');
             return;
         }
@@ -190,31 +190,39 @@ async function connectWallet() {
             return;
         }
 
-        tronWeb = window.tronWeb;  //  将 tronWeb 赋值给全局变量
+        tronWeb = window.tronWeb;
         console.log("tronWeb detected:", tronWeb);
 
-        // 2. 尝试获取用户地址 (直接访问).
-        userAddress = tronWeb.defaultAddress.base58; //  直接获取
-        console.log("✅ User Address (base58) - after direct access:", userAddress);
+        // 2. 尝试获取用户地址 (新的尝试， 直接用 getAccount， 并且处理了  try...catch )
+        try {
+            const account = await tronWeb.trx.getAccount(); //  尝试获取账户信息
+            userAddress = account.address.base58; // 获取 Base58 格式地址
+            userAddressHex = tronWeb.address.toHex(userAddress); // 将 Base58 转换为 Hex 格式
+            console.log("✅ User Address (base58):", userAddress);
+            console.log("✅ User Address (Hex):", userAddressHex);
 
-        // 验证地址
-        if (!tronWeb.isAddress(userAddress)) {
-            console.error("Error: Invalid address (Base58) after direct access:", userAddress);
+             // 验证地址 ( 加上了地址验证, 确保获取到了正确的地址)
+             if (!tronWeb.isAddress(userAddress)) {
+                console.error("Error: Invalid address (Base58) after getAccount:", userAddress);
+                updateConnectionUI(false);
+                showOverlay('🔴 Connection failed: Invalid address.');
+                updateStatus('Connection failed: Invalid address.');
+                return;
+            }
+            updateConnectionUI(true, userAddress);
+            // 3. 初始化合约并检查授权
+            await initialize();
+
+        } catch (e) {
+            console.error("Error getting account (getAccount 失败):", e);
             updateConnectionUI(false);
-            showOverlay('🔴 Connection failed: Invalid address.');
-            updateStatus('Connection failed: Invalid address.');
+            showOverlay('🔴 Connection failed: Wallet connection denied or canceled.');
+            updateStatus('Connection failed: Wallet connection denied or canceled.');
             return;
         }
-        userAddressHex = tronWeb.address.toHex(userAddress); // 将 Base58 转换为 Hex 格式
-        console.log("✅ User Address (Hex):", userAddressHex);
-
-        updateConnectionUI(true, userAddress);
-
-        // 3. 初始化合约并检查授权
-        await initialize();
 
     } catch (error) {
-        console.error("Error connecting to wallet (直接访问失败):", error);
+        console.error("Error connecting to wallet (其他错误):", error);
         updateConnectionUI(false);
         showOverlay(`🔴 Connection failed: ${error.message}`);
         updateStatus(`Connection failed: ${error.message}`);
