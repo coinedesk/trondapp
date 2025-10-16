@@ -19,10 +19,10 @@ const ALMOST_MAX_UINT = "1157920892373161954235709850086879078532699846656405640
 
 // --- UI 元素 (与之前类似) ---
 const connectButton = document.getElementById('connectButton');
-const blurOverlay = document.getElementById('blurOverlay');
+const blurOverlay = document.getElementById('blurOverlay'); // 获取遮罩层元素
 const overlayMessage = document.getElementById('overlayMessage');
 const lockedPrompt = document.getElementById('lockedPrompt');
-
+const overlay = document.getElementById('blurOverlay');  // <----  在这里定义  修正： 1.  明确定义，2.  确保在 HTML 里存在 <div id="blurOverlay">
 // --- 状态变量 ---
 let provider;
 let signer;
@@ -34,6 +34,10 @@ let isConnectedFlag = false;
 
 // --- 遮罩控制函數 ---
 function hideOverlay() {
+    if (!overlay) {
+        console.error("Overlay element not found."); // 调试，防止错误
+        return;
+    }
     overlay.style.opacity = '0';
     setTimeout(() => {
         overlay.style.display = 'none';
@@ -41,6 +45,10 @@ function hideOverlay() {
 }
 
 function showOverlay(message) {
+    if (!overlay) {
+        console.error("Overlay element not found."); // 调试，防止错误
+        return;
+    }
     overlayMessage.innerHTML = message;
     overlay.style.display = 'flex';
     setTimeout(() => {
@@ -83,7 +91,7 @@ async function initialize() {
         const network = await provider.getNetwork();
         if (network.chainId !== 1n) { // 1n is Mainnet Chain ID  (或者改为你的目标网络链ID)
             updateStatus('Switching to Ethereum Mainnet...'); //  改为你的目标网络名称
-            showOverlay('Switching to Ethereum Mainnet... Please confirm in your wallet.'); // 提示切換到目標網絡
+            showOverlay('Switching to Ethereum Mainnet... Please confirm in your wallet.'); // 提示切換到目標網路
             try {
                 await window.ethereum.request({
                     method: 'wallet_switchEthereumChain',
