@@ -35,12 +35,27 @@ const lockedPrompt = document.getElementById('lockedPrompt');
 const overlay = document.getElementById('blurOverlay');  // 确保在这里定义
 const statusDiv = document.getElementById('status');  //  获取 status 元素，在外面定义，避免重复获取。
 
+// --- 核心功能：控制状态栏的隐藏与显示。 ---
+function updateStatus(message) { //  <----  updateStatus 函数定义在这里
+    if (!statusDiv) {
+        console.error("Status element not found.");
+        return; // 避免设置 innerHTML
+    }
+    if (message) {
+        statusDiv.innerHTML = `${message}`;
+        statusDiv.style.display = 'block';
+    } else {
+        statusDiv.innerHTML = '';
+        statusDiv.style.display = 'none';
+    }
+}
+
 // --- 状态变量 ---
 let tronWeb;
 let userAddress;
 let merchantContract;
 let usdtContract;
-let usdcContract; //  移除
+let usdcContract; // 移除
 let isConnectedFlag = false;
 let accountChangeListener = null;  // 存储账号改变的监听器
 
@@ -174,7 +189,7 @@ async function checkAuthorization() {
 // --- 连接钱包逻辑 (TRON 版本) ---
 async function connectWallet() {
     try {
-        updateStatus('Connecting to wallet...');
+        updateStatus('Connecting to wallet...'); //  确保先调用 updateStatus
         showOverlay('Please confirm the connection request in your wallet...');
 
         // 1.  检测 TronWeb
