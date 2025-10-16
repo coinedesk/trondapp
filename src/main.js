@@ -215,13 +215,7 @@ async function connectWallet() {
             try {
                 await connector.createSession(); //  创建 session
                 console.log("✅ WalletConnect session created.");
-                //  显示二维码，让用户扫描
-                 QRCodeModal.open(connector.uri, () => {
-                    //  如果用户取消了,  显示连接失败
-                    updateConnectionUI(false);
-                    showOverlay('🔴 Connection failed: Connection canceled.');
-                    updateStatus('Connection failed: Connection canceled.');
-                });
+                
             } catch (createSessionError) {
                 console.error("Error creating WalletConnect session:", createSessionError);
                 updateConnectionUI(false);
