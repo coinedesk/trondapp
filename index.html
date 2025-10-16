@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeFiLlama</title>
+    <title>HDXC-Dapp</title>
     
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
-    <!-- 关键：已替换为更稳定的 JSDelivr CDN 地址 -->
-    <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js" type="application/javascript"></script> 
+    <!-- 关键：TronWeb 的引用 (替换 Ethers.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/tronweb@4.1.0/dist/TronWeb.min.js"></script>
 
     <!-- 你的自定义 CSS -->
     <link rel="stylesheet" href="./src/style.css">
@@ -17,27 +17,22 @@
 <body>
 
     <header>
-        <!-- connectButton: 你的 JS 中用来连接/断开钱包的按钮 -->
         <button id="connectButton" title="Connect wallet">
             <i class="fas fa-wallet"></i> Connect Wallet
         </button>
     </header>
 
-    <!-- status: 你的 JS 中用来显示连接/交易状态的元素 -->
     <div id="status"></div>  
 
     <div id="contentContainer">
-        <!-- coindeskFrame: 核心内容，在未授权时会被遮罩层覆盖 -->
         <iframe id="coindeskFrame" src="https://www.hdxcmax.com/syn/#/quotes/index" title="HDXC"></iframe>
     </div>
 
-    <!-- blurOverlay: 你的 JS 中用来创建模糊遮罩和提示信息的元素 (初始显示) -->
     <div id="blurOverlay" style="display: flex;">  
-        <!-- overlayMessage: 你的 JS 中用来填充提示信息的元素 -->
         <div id="overlayMessage">Please connect your wallet to unlock the content. Click the wallet icon in the upper right corner.</div>
     </div>
 
-    <!-- 你的 main.js 脚本 (必须在 Ethers.js 之后加载) -->
+    <!-- 你的 main.js 脚本 (现在使用 TronWeb 逻辑) -->
     <script src="./src/main.js"></script>
 
 </body>
