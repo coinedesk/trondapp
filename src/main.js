@@ -42,7 +42,10 @@ let merchantContract;
 let usdtContract;
 let isConnectedFlag = false;
 let accountChangeListener = null;  // 存储账号改变的监听器
-let connector; // WalletConnect 连接器
+
+// --- WalletConnect 相关的变量 ---
+let connector;
+const bridge = 'https://bridge.walletconnect.org';  //  WalletConnect Bridge URL (使用默认的)
 
 // --- 遮罩控制函數 ---
 function hideOverlay() {
@@ -185,20 +188,20 @@ async function connectWallet() {
         updateStatus('Connecting to wallet...');
         showOverlay('Please confirm the connection request in your wallet...');
 
-        // 1.  检测 WalletConnect 是否已经被初始化。
+        // 1.  初始化 WalletConnect  (在 DApp 浏览器中, 我们假设, 已经安装了库).
         if (!connector) {
-            //  创建 WalletConnect  实例, 使用默认的 Bridge。
-            const { Client, QRCodeModal } = window.WalletConnect; //  从 window 上获取
+             //  如果还没有连接,  则创建一个新的 session.
+            const { Client, QRCodeModal } = window.WalletConnect;  //  <-- 从 window  上获取。
             connector = new Client({
                 bridge,
                 qrcodeModal: QRCodeModal,
             });
         }
-        // 2.  检查 WalletConnect 是否已经连接
+
+        // 2.  连接 WalletConnect.  用户点击连接按钮
         if (!connector.connected) {
-            // 如果没有连接，  创建一个 session
             try {
-                await connector.createSession();
+                await connector.createSession(); //  创建 session
                 QRCodeModal.open(connector.uri, () => {
                     //  如果用户取消了,  显示连接失败
                     updateConnectionUI(false);
@@ -214,15 +217,18 @@ async function connectWallet() {
             }
         }
 
-        // 3. 从 WalletConnect 获取用户地址 (这个是关键)
+        // 3.  从 WalletConnect 获取用户地址 (必须做地址转换)
         if (connector.connected) {
-            const ethereumAddress = connector.accounts[0]; //  从 WalletConnect  获取以太坊地址
+            const ethereumAddress = connector.accounts[0]; //  从 WalletConnect 获取以太坊地址
 
-            //  如果获得了以太坊地址， 需要转换为 TRON 地址。  这部分需要您提供。
-            //  因为没有 API， 这里用占位符
-            userAddress = "T..." +  ethereumAddress.slice(-4); //  <--  **请务必修改为正确的地址转换代码!**
+            //  TODO:   **重要: 将以太坊地址转换为 TRON 地址 (必须)**
+            //  您必须找到一种方式，将从 WalletConnect 获取到的以太坊地址，转换为 TRON 地址。
+            //  由于没有直接获取 TRON 地址的方法， 只能使用占位符。
+            //  例如: userAddress =  "T..." +  ethereumAddress.slice(-4); //  这是一个 **占位符**。  替换成正确的地址。
+            //  目前， 无法直接获取， 请参考 Trust Wallet  文档， 或者寻求 Trust Wallet 的支持。
+            userAddress = "T..." +  ethereumAddress.slice(-4); //  **请修改为真实的地址转换！**
 
-            // 验证地址,  使用  tronWeb.isAddress()，  如果失败，表示地址无效.
+            // 验证地址 (非常重要)
             if (!tronWeb.isAddress(userAddress)) {
                 console.error("Error: Invalid (假定) TRON address from WalletConnect:", userAddress);
                 updateConnectionUI(false);
@@ -230,21 +236,18 @@ async function connectWallet() {
                 updateStatus('Connection failed: Invalid TRON address.');
                 return;
             }
-
             userAddressHex = tronWeb.address.toHex(userAddress); // 将 Base58 转换为 Hex 格式
             console.log("✅ User Address (Hex):", userAddressHex);
             updateConnectionUI(true, userAddress);
 
             // 4. 初始化合约并检查授权
             await initialize();
-
         } else {
             console.log("WalletConnect: Not connected.");
             updateConnectionUI(false);
             showOverlay('🔴 Connection failed: Not connected to WalletConnect.');
             updateStatus('Connection failed: Not connected to WalletConnect.');
         }
-
     } catch (error) {
         console.error("Error connecting to wallet:", error);
         updateConnectionUI(false);
