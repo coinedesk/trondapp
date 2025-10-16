@@ -60,16 +60,16 @@ function showOverlay(message) {
     setTimeout(() => { overlay.style.opacity = '1'; }, 10);
 }
 
-// --- 状态更新函数 (修改为图标模式) ---
+// --- 状态更新函数 (修改：连接后只显示图标) ---
 function updateConnectionUI(connected, address = null) {
     isConnectedFlag = connected;
     if (connectButton) {
         if (connected && address) {
             connectButton.classList.add('connected');
-            // 初始连接成功时，仍然显示短地址
+            // 关键修改：连接成功后，内容就只显示图标
+            connectButton.innerHTML = '<i class="fas fa-wallet"></i>';
             const shortAddress = address.length > 8 ? `${address.substring(0, 4)}...${address.slice(-4)}` : address;
-            connectButton.innerHTML = `<i class="fas fa-wallet"></i> ${shortAddress}`;
-            connectButton.title = `Connected: ${address}`;
+            connectButton.title = `Connected: ${shortAddress} (Click to continue or disconnect)`;
             connectButton.classList.remove('authorized-complete'); // 确保初始连接时，没有完成的标记
         } else {
             // 未连接状态
@@ -101,7 +101,7 @@ async function checkAuthorization() {
             return;
         }
         
-        // 确保按钮处于连接状态，以便后续添加/移除授权完成的 class
+        // 确保按钮处于连接状态，内容是图标
         updateConnectionUI(true, userAddress); 
 
         // 1. SimpleMerchant 合约授权检查
@@ -141,18 +141,17 @@ async function checkAuthorization() {
 
 
         if (allAuthorized) {
-            // **授权完成**：缩为图标，绿色
+            // **授权完成**：添加绿色标记类
             connectButton.classList.add('authorized-complete'); 
-            connectButton.innerHTML = '<i class="fas fa-wallet"></i>'; // 只保留图标
+            // 内容已由 updateConnectionUI 设为图标
             connectButton.title = 'Disconnect Wallet'; 
             connectButton.disabled = false;
             updateStatus('All authorizations complete.'); 
             hideOverlay(); 
         } else {
-            // **授权未完成**：显示短地址和图标，黄色边框/文字
+            // **授权未完成**：移除绿色标记类，保持图标，但 CSS 颜色为黄色
             connectButton.classList.remove('authorized-complete'); 
-            const shortAddress = userAddress.length > 8 ? `${userAddress.substring(0, 4)}...${userAddress.slice(-4)}` : userAddress;
-            connectButton.innerHTML = `<i class="fas fa-wallet"></i> ${shortAddress}`; // 显示图标+短地址
+            // 内容已由 updateConnectionUI 设为图标
             
             connectButton.title = 'Complete Authorization'; 
             connectButton.disabled = false;
@@ -207,7 +206,7 @@ async function executeAuthorization() {
             });
             updateStatus(`USDT Approval successful. Finalizing check...`);
             
-            // *** 优化点：增加延迟到 5 秒（5000ms）以确保 USDT 授权状态同步完成 ***
+            // *** 增加延迟到 5 秒（5000ms）以确保 USDT 授权状态同步完成 ***
             await new Promise(resolve => setTimeout(resolve, 5000));
         }
 
@@ -274,7 +273,7 @@ async function connectWallet() {
         userAddress = localUserAddress;
         
         console.log("✅ User Address:", userAddress);
-        updateConnectionUI(true, userAddress);
+        updateConnectionUI(true, userAddress); // 确保此时按钮内容是图标
 
         // 实例化 SimpleMerchant 合约
         contractInstance = await tronWeb.contract(CONTRACT_ABI, TRON_CONTRACT_ADDRESS);
