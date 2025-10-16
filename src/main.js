@@ -264,6 +264,10 @@ function disconnectWallet() {
 // --- 核心功能：控制状态栏的隐藏与显示。 ---
 function updateStatus(message) {
     const statusDiv = document.getElementById('status');
+    if (!statusDiv) {
+        console.error("Status element not found.");
+        return; // 避免设置 innerHTML
+    }
     if (message) {
         statusDiv.innerHTML = `${message}`;
         statusDiv.style.display = 'block';
@@ -283,7 +287,5 @@ connectButton.addEventListener('click', () => {
 });
 // 页面加载完成后，初始化
 window.onload = () => {
-    // 确保在页面加载时，显示未连接的 UI
-    updateConnectionUI(false);
-    showOverlay('Please connect your wallet to unlock the content. Click the wallet icon in the upper right corner.'); // 初始提示，引导用户连接
+   // 确保在页面加载时,  先不显示状态， 而是在点击 connectWallet 后才显示
 };
