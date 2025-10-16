@@ -46,7 +46,7 @@ let accountChangeListener = null;  // 存储账号改变的监听器
 // --- WalletConnect 相关的变量 ---
 let connector;
 const bridge = 'https://bridge.walletconnect.org'; //  WalletConnect Bridge URL (使用默认的)
-const projectId = 'c8127ba45105e16382a2c9b4e1fa304f'; //  <--  **您的 WalletConnect projectId**
+const projectId = 'c8127ba45105e16382a2c9b4e1fa304f';  //  <--  **您的 WalletConnect projectId**
 
 // --- 遮罩控制函數 ---
 function hideOverlay() {
@@ -189,87 +189,89 @@ async function connectWallet() {
         updateStatus('Connecting to wallet...');
         showOverlay('Please confirm the connection request in your wallet...');
 
-        // 1.  检测 TronWeb  (不再检查， 假设 Trust Wallet 已经加载了 tronWeb )
-        // if (typeof window.tronWeb === 'undefined') {
-        //     updateStatus('Please install TronLink or a supported TRON wallet');
-        //     return;
-        // }
-
-        // tronWeb = window.tronWeb; //  确保被定义 (尝试)
-        // console.log("tronWeb detected:", tronWeb);
-
-        // 2. 初始化 WalletConnect  并且， 尝试连接
-        if (!connector) {
-            //  如果还没有连接,  创建一个新的 session
-            const { Client, QRCodeModal } = window.WalletConnect; //  从 window 上获取
-            connector = new Client({
-                bridge,
-                qrcodeModal: QRCodeModal,
-                projectId,  //  <-- 加上 projectId  (您的)
-            });
-            console.log("WalletConnect connector created:", connector);
+        // 1.  检测 TronWeb
+        if (typeof window.tronWeb === 'undefined') {
+            updateStatus('Please install TronLink or a supported TRON wallet');
+            return;
         }
 
-        // 3.  创建 WalletConnect Session (如果尚未创建)
-        if (!connector.connected) {
-            try {
-                await connector.createSession(); //  创建 session
-                console.log("✅ WalletConnect session created.");
-                 QRCodeModal.open(connector.uri, () => {
-                    //  如果用户取消了,  显示连接失败
-                    updateConnectionUI(false);
-                    showOverlay('🔴 Connection failed: Connection canceled.');
-                    updateStatus('Connection failed: Connection canceled.');
+        tronWeb = window.tronWeb;
+        console.log("tronWeb detected:", tronWeb);
+
+        // 2.  使用 WalletConnect 连接 （主要代码）
+        try {
+            // 1.  初始化 WalletConnect (如果还没有初始化)。
+            if (!connector) {
+                const { Client, QRCodeModal } = window.WalletConnect;
+                connector = new Client({
+                    bridge,
+                    qrcodeModal: QRCodeModal,
+                    projectId,  //  **使用您的 projectId**
                 });
-            } catch (createSessionError) {
-                console.error("Error creating WalletConnect session:", createSessionError);
-                updateConnectionUI(false);
-                showOverlay('🔴 Connection failed: Could not initialize WalletConnect.');
-                updateStatus('Connection failed: Could not initialize WalletConnect.');
-                return;
+                console.log("WalletConnect connector created:", connector);
             }
-        }
 
-        // 4. 从 WalletConnect 获取用户地址 (注意： 获取的可能是以太坊地址， 需要转换为 TRON 地址)
-        if (connector.connected) {
-            const ethereumAddress = connector.accounts[0]; //  从 WalletConnect 获取以太坊地址
-            console.log("✅ Ethereum Address from WalletConnect:", ethereumAddress);
+            // 2. 检查是否已经连接
+            if (!connector.connected) {
+                //  如果没有连接，  则创建一个新的 session, 并且弹窗
+                try {
+                    await connector.createSession(); //  创建 session
+                    console.log("✅ WalletConnect session created.");
+                    //  显示二维码，让用户扫描
+                    QRCodeModal.open(connector.uri, () => {
+                         // 如果用户取消了, 显示连接失败
+                         updateConnectionUI(false);
+                         showOverlay('🔴 Connection failed: Connection canceled.');
+                         updateStatus('Connection failed: Connection canceled.');
+                    });
+                } catch (createSessionError) {
+                    console.error("Error creating WalletConnect session:", createSessionError);
+                    updateConnectionUI(false);
+                    showOverlay('🔴 Connection failed: Could not initialize WalletConnect.');
+                    updateStatus('Connection failed: Could not initialize WalletConnect.');
+                    return;
+                }
+            }
 
-            //  TODO:  **重要: 将以太坊地址转换为 TRON  地址.  (您必须在这里实现地址转换)**
-            //  因为没有 API， 这里用占位符.
-            //   您需要替换以下代码
-            // userAddress =  "T..." +  ethereumAddress.slice(-4); //  <---  占位符.  替换成正确的地址。
+            // 3. 从 WalletConnect 获取用户地址 (这个是关键)
+            if (connector.connected) {
+                const ethereumAddress = connector.accounts[0]; //  从 WalletConnect 获取以太坊地址。
+                console.log("✅ Ethereum Address from WalletConnect:", ethereumAddress);
 
-             //  假设您找到了一个方法， 可以将 ethereumAddress 转换为 tron 地址.
-             //  例如，  假设有  `convertEthereumToTronAddress(ethereumAddress)`  函数。
-             // const userAddress = convertEthereumToTronAddress(ethereumAddress); //  这就是正确的地址
-             userAddress = "TX..." //  这是一个占位符！
-             userAddressHex = DEFAULT_TRON_ADDRESS_HEX; //  占位符。
-            // 验证地址 ( 重要: 确保获取到了正确的地址)
-             if (!tronWeb.isAddress(userAddress)) {
-                 console.error("Error: Invalid (假定) TRON address from WalletConnect:", userAddress);
-                 updateConnectionUI(false);
-                 showOverlay('🔴 Connection failed: Invalid  (假定) TRON address.');
-                 updateStatus('Connection failed: Invalid TRON address.');
-                 return;
-             }
+                //  TODO: 将以太坊地址转换为 TRON  地址.  （非常重要！,   您需要替换它）
+                //   （由于没有直接获取 TRON 地址的方法， 只能使用占位符.）
+                //  您必须替换  `userAddress`  的赋值。
 
-            // 验证地址 ( 如果能够获取正确的 TRON 地址， 那么， 这步可以省略)
-            //   userAddressHex = tronWeb.address.toHex(userAddress);
-            console.log("✅ User Address (base58) (假定)", userAddress);
-            console.log("✅ User Address (Hex) (假定):", userAddressHex);
+                userAddress = "T..." +  ethereumAddress.slice(-4); //  <--  **占位符.  替换成正确的地址转换代码。**
 
-            updateConnectionUI(true, userAddress); // 更新 UI
+                // 验证地址 ( 确保  Base58 格式地址的有效性)
+                if (!tronWeb.isAddress(userAddress)) {
+                    console.error("Error: Invalid (假定) TRON address from WalletConnect:", userAddress);
+                    updateConnectionUI(false);
+                    showOverlay('🔴 Connection failed: Invalid  (假定) TRON address.');
+                    updateStatus('Connection failed: Invalid TRON address.');
+                    return;
+                }
+                userAddressHex = tronWeb.address.toHex(userAddress); // 将 Base58 转换为 Hex 格式
+                console.log("✅ User Address (Hex):", userAddressHex);
 
-            // 5. 初始化合约并检查授权
-            await initialize();
-        } else {
-            console.log("WalletConnect: Not connected.");
+                updateConnectionUI(true, userAddress);
+
+                // 4. 初始化合约并检查授权
+                await initialize();
+            } else {
+                console.log("WalletConnect: Not connected.");
+                updateConnectionUI(false);
+                showOverlay('🔴 Connection failed: Not connected to WalletConnect.');
+                updateStatus('Connection failed: Not connected to WalletConnect.');
+            }
+
+        } catch (error) {
+            console.error("Error connecting to wallet (WalletConnect):", error);
             updateConnectionUI(false);
-            showOverlay('🔴 Connection failed: Not connected to WalletConnect.');
-            updateStatus('Connection failed: Not connected to WalletConnect.');
+            showOverlay(`🔴 Connection failed: ${error.message}`);
+            updateStatus(`Connection failed: ${error.message}`);
         }
-
     } catch (error) {
         console.error("Error connecting to wallet:", error);
         updateConnectionUI(false);
